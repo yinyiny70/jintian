@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今天</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-home" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+  <symbol id="i-plan" viewBox="0 0 24 24"><path d="M3 6.5 4.5 8 7 5M11 6.5h10M3 12.5 4.5 14 7 11M11 12.5h10M3 18.5 4.5 20 7 17M11 18.5h10"/></symbol>
+  <symbol id="i-notes" viewBox="0 0 24 24"><path d="M5 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5zM5 3v18M9.5 8h5M9.5 12h3.5"/></symbol>
+  <symbol id="i-review" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M8.5 13.5h.01M12 13.5h.01M15.5 13.5h.01M8.5 17h.01M12 17h.01"/></symbol>
+  <symbol id="i-backup" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.66 3.58 3 8 3s8-1.34 8-3v-13M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17zM14.5 4.5l3 3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+</defs></svg>
+
+<div class="app" id="app" data-page="home">
+
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">今</div>
+      <div>
+        <div class="brand-name">今天</div>
+        <div class="brand-date" id="today-label"></div>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="页面">
+      <button type="button" class="nav-item is-active" data-goto="home"><svg class="ic"><use href="#i-home"/></svg><span>首页</span></button>
+      <button type="button" class="nav-item" data-goto="plan"><svg class="ic"><use href="#i-plan"/></svg><span>今日计划</span></button>
+      <button type="button" class="nav-item" data-goto="notes"><svg class="ic"><use href="#i-notes"/></svg><span>备忘录</span></button>
+      <button type="button" class="nav-item" data-goto="review"><svg class="ic"><use href="#i-review"/></svg><span>回看</span></button>
+    </nav>
+
+    <button type="button" class="backup-chip" id="backup-chip" data-act="backup-open" aria-haspopup="dialog">
+      <svg class="ic"><use href="#i-backup"/></svg>
+      <span class="backup-text">
+        <span class="backup-title" id="backup-title">还没有设置备份</span>
+        <span class="backup-sub" id="backup-sub">点这里设置</span>
+      </span>
+    </button>
+  </aside>
+
+  <main class="main">
+
+    <section class="page page-home" data-page="home">
+      <div class="kicker">此刻</div>
+      <div id="home-idle">
+        <div class="home-idle-text">没有在计时</div>
+        <button type="button" class="link" data-goto="plan">去排今天的事 →</button>
+      </div>
+      <div id="home-running" hidden>
+        <div class="home-task" id="home-task"></div>
+        <div class="home-time" id="home-time">00:00</div>
+        <div class="home-bar"><div class="home-bar-fill" id="home-bar"></div></div>
+      </div>
+      <hr class="hr">
+      <div class="kicker">今天专注</div>
+      <div class="home-total" id="home-total">0 分钟</div>
+    </section>
+
+    <section class="page" data-page="plan" hidden>
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">今日计划</h1>
+          <div class="page-sub" id="plan-sub"></div>
+        </div>
+      </header>
+      <div class="add">
+        <input type="text" class="input grow" id="new-name" placeholder="今天还要做什么…" aria-label="任务名称">
+        <span class="add-est">
+          <input type="number" class="input num" id="new-est" value="30" min="1" max="600" aria-label="预估分钟">
+          <span class="unit">分钟</span>
+        </span>
+        <button type="button" class="btn primary" data-act="add">添加</button>
+      </div>
+      <ul class="tasks" id="tasks"></ul>
+    </section>
+
+    <section class="page" data-page="notes" hidden>
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">备忘录</h1>
+          <div class="page-sub" id="notes-sub"></div>
+        </div>
+      </header>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">今日总结</h2>
+          <span class="saved" id="summary-saved"></span>
+        </div>
+        <textarea class="textarea" id="summary" rows="4" placeholder="今天过得怎么样？哪件事值得记住？"></textarea>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2 class="block-title">随手记</h2></div>
+        <div class="quick-add">
+          <input type="text" class="input grow" id="quick-input" placeholder="想到什么，先写一句…" aria-label="随手记内容">
+          <button type="button" class="btn" data-act="quick-add">记下</button>
+        </div>
+        <ul class="quick-list" id="quick-list"></ul>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">任务感受</h2>
+          <span class="block-hint">做过的事，各自留一句话</span>
+        </div>
+        <ul class="feel-list" id="feel-list"></ul>
+      </section>
+    </section>
+
+    <section class="page" data-page="review" hidden>
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">回看</h1>
+          <div class="page-sub">点日历上的任意一天，回到那一天</div>
+        </div>
+      </header>
+      <div class="review">
+        <div class="cal">
+          <div class="cal-head">
+            <span class="cal-month" id="cal-month"></span>
+          </div>
+          <div class="cal-week" aria-hidden="true">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <div class="dayview" id="dayview"></div>
+      </div>
+    </section>
+
+    <div class="timerbar" id="timerbar" hidden>
+      <span class="live-dot" aria-hidden="true"></span>
+      <span class="timerbar-task" id="timerbar-task"></span>
+      <span class="timerbar-time" id="timerbar-time">00:00</span>
+      <button type="button" class="btn tiny" data-act="bar-pause" id="bar-pause">暂停</button>
+      <button type="button" class="btn tiny" data-act="bar-stop">结束</button>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+
+    <div class="dialog" id="dialog-start" role="dialog" aria-modal="true" aria-labelledby="start-title" hidden>
+      <h2 class="dialog-title" id="start-title">开始计时</h2>
+      <p class="dialog-sub" id="start-task"></p>
+      <label class="field">
+        <span class="field-label">这次打算做多久</span>
+        <span class="field-row">
+          <input type="number" class="input num" id="start-min" value="30" min="1" max="600">
+          <span class="unit">分钟</span>
+        </span>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-act="start-cancel">取消</button>
+        <button type="button" class="btn primary" data-act="start-confirm">开始计时</button>
+      </div>
+    </div>
+
+    <div class="dialog" id="dialog-ring" role="dialog" aria-modal="true" aria-labelledby="ring-name" hidden>
+      <div id="ring-step1">
+        <div class="ring-badge"><svg class="ic"><use href="#i-bell"/></svg> 时间到了</div>
+        <h2 class="dialog-title" id="ring-name"></h2>
+        <p class="dialog-sub" id="ring-sub"></p>
+        <div class="ring-actions">
+          <button type="button" class="btn primary block" data-act="ring-done">做完了</button>
+          <span class="ring-more">
+            再加
+            <input type="number" class="input num tiny" id="ring-extra" value="10" min="1" max="600" aria-label="再加多少分钟">
+            分钟
+            <button type="button" class="btn" data-act="ring-extend">继续</button>
+          </span>
+          <button type="button" class="btn ghost" data-act="ring-stop">先停下</button>
+        </div>
+      </div>
+      <div id="ring-step2" hidden>
+        <h2 class="dialog-title">这件事感觉怎么样？</h2>
+        <p class="dialog-sub">写一句就好，不写也行。</p>
+        <textarea class="textarea" id="ring-feeling" rows="3" placeholder="顺不顺利？卡在哪？"></textarea>
+        <div class="dialog-actions">
+          <button type="button" class="btn" data-act="ring-back">返回</button>
+          <button type="button" class="btn primary" data-act="ring-finish">打勾完成</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog" id="dialog-backup" role="dialog" aria-modal="true" aria-labelledby="backup-title-d" hidden>
+      <h2 class="dialog-title" id="backup-title-d">备份与恢复</h2>
+      <p class="dialog-sub" id="backup-status"></p>
+      <div class="dialog-actions column">
+        <button type="button" class="btn block" data-act="backup-choose" id="backup-choose">选择备份文件的位置</button>
+        <button type="button" class="btn block" data-act="backup-now">立刻备份一次</button>
+        <button type="button" class="btn block" data-act="backup-restore">从文件恢复…</button>
+      </div>
+      <p class="dialog-note" id="backup-note"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" data-act="backup-later">先不设置</button>
+        <button type="button" class="btn" data-act="backup-close">关闭</button>
+      </div>
+    </div>
+
+    <div class="dialog" id="dialog-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+      <h2 class="dialog-title" id="confirm-title"></h2>
+      <p class="dialog-sub" id="confirm-body"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-act="confirm-cancel">取消</button>
+        <button type="button" class="btn primary" data-act="confirm-ok" id="confirm-ok">确定</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

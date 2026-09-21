@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>技术验证（一次性）</title>
+</head>
+<body>
+<h1>技术验证</h1>
+<p>这个页面只用来确认浏览器的能力，验证完就不再用它。</p>
+<pre id="out">等待检测…</pre>
+<script>
+window.__probe = {
+  info: function () {
+    return {
+      href: location.href,
+      origin: String(location.origin),
+      secure: window.isSecureContext,
+      savePicker: typeof window.showSaveFilePicker,
+      openPicker: typeof window.showOpenFilePicker,
+      directoryPicker: typeof window.showDirectoryPicker,
+      opfs: !!(navigator.storage && navigator.storage.getDirectory),
+      estimates: !!(navigator.storage && navigator.storage.estimate)
+    };
+  },
+  localSet: function (key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return { ok: localStorage.getItem(key) === value, raw: localStorage.getItem(key) };
+    } catch (err) {
+      return { ok: false, err: String(err) };
+    }
+  },
+  localGet: function (key) {
+    try {
+      return { ok: true, value: localStorage.getItem(key) };
+    } catch (err) {
+      return { ok: false, err: String(err) };
+    }
+  },
+  idbPut: function (dbName, key, value) {
+    return new Promise(function (resolve) {
+      var req;
+      try {
+        req = indexedDB.open(dbName, 1);
+      } catch (err) {
+        resolve({ ok: false, err: String(err) });
+        return;
+      }
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains("kv")) req.result.createObjectStore("kv");
+      };
+      req.onerror = function () { resolve({ ok: false, err: String(req.error) }); };
+      req.onblocked = function () { resolve({ ok: false, err: "blocked" }); };
+      req.onsuccess = function () {
+        try {
+          var tx = req.result.transaction("kv", "readwrite");
+          tx.objectStore("kv").put(value, key);
+          tx.oncomplete = function () { resolve({ ok: true }); };
+          tx.onerror = function () { resolve({ ok: false, err: String(tx.error) }); };
+          tx.onabort = function () { resolve({ ok: false, err: "aborted: " + String(tx.error) }); };
+        } catch (err) {
+          resolve({ ok: false, err: String(err) });
+        }
+      };
+    });
+  },
+  idbGet: function (dbName, key) {
+    return new Promise(function (resolve) {
+      var req;
+      try {
+        req = indexedDB.open(dbName, 1);
+      } catch (err) {
+        resolve({ ok: false, err: String(err) });
+        return;
+      }
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains("kv")) req.result.createObjectStore("kv");
+      };
+      req.onerror = function () { resolve({ ok: false, err: String(req.error) }); };
+      req.onsuccess = function () {
+        try {
+          var tx = req.result.transaction("kv", "readonly");
+          var g = tx.objectStore("kv").get(key);
+          g.onsuccess = function () { resolve({ ok: true, value: g.result }); };
+          g.onerror = function () { resolve({ ok: false, err: String(g.error) }); };
+        } catch (err) {
+          resolve({ ok: false, err: String(err) });
+        }
+      };
+    });
+  }
+};
+document.getElementById("out").textContent = JSON.stringify(window.__probe.info(), null, 2);
+</script>
+</body>
+</html>
