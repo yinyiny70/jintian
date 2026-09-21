@@ -53,6 +53,28 @@ function makeAsker() {
   };
 }
 
+// 这个文件夹是我在受限制的账号下建的，所以它的「所有者」不是你。
+// Git 出于安全会拒绝这种仓库，报 "detected dubious ownership"。
+// 官方给的解法就是在配置里把这一个目录列为「可信目录」，等同于你亲口说
+// 「这个目录是我自己的，我知道它的来历」。这里自动帮你做掉。
+function fixDubiousOwnership() {
+  const probe = tryGit(["status", "--short"]);
+  if (probe.ok) return false;
+  const message = probe.message || "";
+  if (message.indexOf("dubious ownership") === -1) return false;
+  const target = ROOT.replace(/\\/g, "/");
+  const known = tryGit(["config", "--global", "--get-all", "safe.directory"]).out;
+  const list = known ? known.split(/\r?\n/).map(function (s) { return s.trim().toLowerCase(); }) : [];
+  if (list.indexOf(target.toLowerCase()) === -1) {
+    try {
+      git(["config", "--global", "--add", "safe.directory", target]);
+    } catch (err) {
+      return false;
+    }
+  }
+  return tryGit(["status", "--short"]).ok;
+}
+
 // 第一次用 Git 时，得先告诉它「你是谁」。
 // 两个脚本共用这一段，所以不论是「初始化」还是「保存版本」，
 // 只要发现还没配过，都会问你一次。
@@ -91,4 +113,13 @@ async function ensureIdentity() {
   return { name: finalName, email: finalEmail };
 }
 
-module.exports = { ROOT, git, tryGit, line, rule, makeAsker, ensureIdentity };
+module.exports = {
+  ROOT,
+  git,
+  tryGit,
+  line,
+  rule,
+  makeAsker,
+  ensureIdentity,
+  fixDubiousOwnership,
+};

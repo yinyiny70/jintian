@@ -114,5 +114,40 @@ module.exports = {
         ctx.assert.ok(saved.version >= 1, "存下去的数据没有版本号");
       },
     },
+    {
+      name: "数据里遗留的空白日期会被清掉，有内容的日期不受影响",
+      async run(ctx) {
+        await ctx.page.goto(ctx.appUrl, { waitUntil: "load" });
+        const today = await ctx.page.evaluate(() => window.__jintian.todayKey());
+        const legacy = {
+          version: 1,
+          tasks: {
+            "2026-09-01": [],
+            "2026-09-02": [],
+            [today]: [
+              { id: "k1", name: "留下的任务", est: 10, spentSec: 0, done: false, feeling: "" },
+            ],
+          },
+          summaries: { "2026-09-03": "", [today]: "有内容的总结" },
+          notes: { "2026-09-04": [] },
+          timer: null,
+          settings: {},
+        };
+        await withStorage(ctx, ([k, v]) => localStorage.setItem(k, v), [KEY, JSON.stringify(legacy)]);
+
+        const state = await ctx.page.evaluate(() => ({
+          taskDays: Object.keys(window.__jintian.state.tasks),
+          noteDays: Object.keys(window.__jintian.state.notes),
+          summaryDays: Object.keys(window.__jintian.state.summaries),
+        }));
+        ctx.assert.eq(state.taskDays.join(","), today, "空白的任务日期没有被清掉");
+        ctx.assert.eq(state.noteDays.length, 0, "空白的随手记日期没有被清掉");
+        ctx.assert.eq(state.summaryDays.join(","), today, "空白的总结没有被清掉");
+
+        const saved = JSON.parse(await raw(ctx.page, KEY));
+        ctx.assert.eq(Object.keys(saved.tasks).join(","), today, "清理结果没有写回存储");
+        ctx.assert.eq(Object.keys(saved.notes).length, 0, "清理结果没有写回存储");
+      },
+    },
   ],
 };

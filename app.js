@@ -122,6 +122,8 @@
       if (!Array.isArray(next.tasks[date])) next.tasks[date] = [];
       next.tasks[date] = next.tasks[date].filter(function (t) { return t && typeof t.name === "string"; });
     });
+    // 顺手把以前留下的空白日期清掉
+    pruneEmptyDays(next);
     return next;
   }
 
@@ -157,24 +159,43 @@
     return state.notes[date];
   }
 
+  // 只读版本：没有记录的日期就是空的，绝不因为「看了一眼」就凭空建出一条记录。
+  // 下面所有「显示」的地方都必须用这两个，只有真正写入时才用上面那两个。
+  function readTasks(date) { return state.tasks[date] || []; }
+  function readNotes(date) { return state.notes[date] || []; }
+
   function summaryOf(date) { return state.summaries[date] || ""; }
 
   function spentSecondsOf(date) {
-    return tasksOf(date).reduce(function (sum, t) { return sum + (Number(t.spentSec) || 0); }, 0);
+    return readTasks(date).reduce(function (sum, t) { return sum + (Number(t.spentSec) || 0); }, 0);
   }
 
   function dayHasContent(date) {
     return (
-      tasksOf(date).length > 0 ||
-      notesOf(date).length > 0 ||
+      readTasks(date).length > 0 ||
+      readNotes(date).length > 0 ||
       summaryOf(date).trim().length > 0
     );
   }
 
   function taskById(date, id) {
-    var list = tasksOf(date);
+    var list = readTasks(date);
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
     return null;
+  }
+
+  // 把「空白的日期」清掉：这种记录没有任何信息，留着只会让数据文件变脏。
+  function pruneEmptyDays(target) {
+    var data = target || state;
+    Object.keys(data.tasks).forEach(function (d) {
+      if (!Array.isArray(data.tasks[d]) || data.tasks[d].length === 0) delete data.tasks[d];
+    });
+    Object.keys(data.notes).forEach(function (d) {
+      if (!Array.isArray(data.notes[d]) || data.notes[d].length === 0) delete data.notes[d];
+    });
+    Object.keys(data.summaries).forEach(function (d) {
+      if (!String(data.summaries[d] || "").trim()) delete data.summaries[d];
+    });
   }
 
   /* ============================================================
@@ -218,8 +239,8 @@
   }
 
   function renderPlan() {
-    var key = todayKey();
-    var list = tasksOf(key);
+      var key = todayKey();
+      var list = readTasks(key);
     var done = list.filter(function (t) { return t.done; }).length;
     setText("plan-sub", dateLabel(key) + " · 完成 " + done + " / " + list.length);
 
@@ -694,7 +715,7 @@
   }
 
   function renderQuickList() {
-    var list = notesOf(todayKey());
+    var list = readNotes(todayKey());
     var host = $("quick-list");
     if (!list.length) {
       host.innerHTML = '<li class="empty">今天还没有随手记。</li>';
@@ -714,7 +735,7 @@
   }
 
   function renderFeels() {
-    var list = tasksOf(todayKey()).filter(function (t) {
+    var list = readTasks(todayKey()).filter(function (t) {
       return (Number(t.spentSec) || 0) > 0;
     });
     var host = $("feel-list");
@@ -829,8 +850,8 @@
     var date = selectedDate || todayKey();
     var host = $("dayview");
     var isToday = date === todayKey();
-    var tasks = tasksOf(date);
-    var notes = notesOf(date);
+    var tasks = readTasks(date);
+    var notes = readNotes(date);
     var summary = summaryOf(date);
 
     if (!isToday && !dayHasContent(date)) {
@@ -1127,7 +1148,7 @@
         return;
       }
       if (act === "del") {
-        var list = tasksOf(todayKey());
+        var list = readTasks(todayKey());
         var idx = list.findIndex(function (t) { return t.id === id; });
         if (idx >= 0) list.splice(idx, 1);
         saveSoon();
@@ -1144,7 +1165,7 @@
       if (act === "quick-del") {
         var noteEl = btn.closest(".quick-item");
         var noteId = noteEl ? noteEl.dataset.noteId : null;
-        var notes = notesOf(todayKey());
+        var notes = readNotes(todayKey());
         var nIdx = notes.findIndex(function (n) { return n.id === noteId; });
         if (nIdx >= 0) notes.splice(nIdx, 1);
         saveSoon();
@@ -1254,7 +1275,7 @@
   }
 
   function moveTask(fromId, toId) {
-    var list = tasksOf(todayKey());
+    var list = readTasks(todayKey());
     var from = -1;
     var to = -1;
     list.forEach(function (t, i) {

@@ -144,5 +144,25 @@ module.exports = {
         ctx.assert.eq(view.editables, 0, "今天的内容应该去别的页面改，这里不该有输入框");
       },
     },
+    {
+      name: "打开回看页不会凭空给当月每一天建记录",
+      async run(ctx) {
+        await fresh(ctx);
+        await ctx.sleep(400);
+        const now = await ctx.page.evaluate(() => ({
+          tasks: Object.keys(window.__jintian.state.tasks).length,
+          notes: Object.keys(window.__jintian.state.notes).length,
+          summaries: Object.keys(window.__jintian.state.summaries).length,
+        }));
+        ctx.assert.eq(now.tasks, 0, "打开回看后凭空多出 " + now.tasks + " 个任务日期");
+        ctx.assert.eq(now.notes, 0, "打开回看后凭空多出 " + now.notes + " 个随手记日期");
+        ctx.assert.eq(now.summaries, 0, "打开回看后凭空多出 " + now.summaries + " 个总结");
+
+        await ctx.sleep(400);
+        const saved = JSON.parse(await ctx.page.evaluate(() => localStorage.getItem("jintian.v1")));
+        ctx.assert.eq(Object.keys(saved.tasks).length, 0, "存储里也被塞进了空白日期");
+        ctx.assert.eq(Object.keys(saved.notes).length, 0, "存储里也被塞进了空白随手记日期");
+      },
+    },
   ],
 };

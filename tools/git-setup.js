@@ -2,7 +2,15 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { ROOT, git, tryGit, line, rule, ensureIdentity } = require("./git-common");
+const {
+  ROOT,
+  git,
+  tryGit,
+  line,
+  rule,
+  ensureIdentity,
+  fixDubiousOwnership,
+} = require("./git-common");
 
 async function main() {
   line("");
@@ -20,6 +28,12 @@ async function main() {
   }
   line("  [√] 找到 Git：" + version.out);
   line("");
+
+  if (fixDubiousOwnership()) {
+    line("  [√] 已把这个目录登记为「可信目录」");
+    line("      （这个文件夹的所有者不是我，Git 默认会拒绝操作，登记一次即可）");
+    line("");
+  }
 
   await ensureIdentity();
   line("");
@@ -73,14 +87,18 @@ async function main() {
 main()
   .then((code) => process.exit(code))
   .catch((err) => {
+    const text = String((err && err.message) || err);
     line("");
-    line("  [×] 出错了：" + (err && err.message ? err.message : String(err)));
+    line("  [×] 出错了：");
+    line("      " + text.split("\n")[0]);
     line("");
-    line("  常见原因和处理办法：");
-    line("  1. 这个文件夹里的 .git 有问题");
-    line("     → 把 .git 文件夹整个删掉（它现在还是空的，删了没有任何损失），再双击一次");
-    line("  2. git 本身没配好");
-    line("     → 把上面的报错内容截图发给 Codex");
+    if (text.indexOf("dubious ownership") !== -1) {
+      line("  原因：这个文件夹的所有者不是你，Git 默认不信任它。");
+      line("  处理：手动跑一次下面这行，然后再双击一次这个文件 ——");
+      line("      git config --global --add safe.directory \"" + ROOT.replace(/\\/g, "/") + "\"");
+    } else {
+      line("  把上面这段内容截图发给 Codex，我来处理。");
+    }
     line("");
     process.exit(1);
   });
