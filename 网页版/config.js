@@ -6,5 +6,5 @@ window.JINTIAN_CONFIG = {
   //   - 网页版：留空即可，它会自动用当前网址（同一个域名下的 /api）
   //   - 本机版：必须填上，否则本机那份同步不上去。
   //   例：apiBase: "https://jintian.你的名字.workers.dev"
-  apiBase: "",
+  apiBase: "https://jintian-api.3030370958.workers.dev",
 };
