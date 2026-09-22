@@ -37,14 +37,37 @@ function rule(char) {
 // 原因：如果每问一句就新建一个，输入被一次性读进来时，第二句会拿不到内容。
 function makeAsker() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  let pending = null;
+  let closed = false;
+  // 输入流如果提前结束了（比如被管道/重定向截断），别让它抛错崩掉整个脚本，
+  // 当成"用户没答"处理就好。
+  rl.on("close", function () {
+    closed = true;
+    if (pending) {
+      const done = pending;
+      pending = null;
+      done("");
+    }
+  });
   return {
     ask(question) {
       return new Promise((resolve) => {
-        rl.question(question, (answer) => {
-          // 真实窗口里，你敲的回车会让光标换行；管道输入时不会，补一个
-          if (!process.stdout.isTTY) line("");
-          resolve(String(answer || "").trim());
-        });
+        if (closed) {
+          resolve("");
+          return;
+        }
+        pending = resolve;
+        try {
+          rl.question(question, (answer) => {
+            // 真实窗口里，你敲的回车会让光标换行；管道输入时不会，补一个
+            if (!process.stdout.isTTY) line("");
+            pending = null;
+            resolve(String(answer || "").trim());
+          });
+        } catch (err) {
+          pending = null;
+          resolve("");
+        }
       });
     },
     close() {

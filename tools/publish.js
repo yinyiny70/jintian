@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawn } = require("node:child_process");
 const {
   ROOT,
   git,
@@ -28,6 +29,32 @@ function refreshSiteFolder() {
     copied.push(name);
   });
   return copied;
+}
+
+// 推送这一步既要让你实时看到输出（比如"请在浏览器里完成登录"），
+// 又要把输出内容留下来，好在失败时判断到底是哪种原因。
+// 所以这里用 spawn 边打边存。
+function gitStreaming(args) {
+  return new Promise(function (resolve) {
+    const child = spawn("git", args, { cwd: ROOT, stdio: ["inherit", "pipe", "pipe"] });
+    let text = "";
+    child.stdout.on("data", function (chunk) {
+      const s = chunk.toString("utf8");
+      text += s;
+      process.stdout.write(s);
+    });
+    child.stderr.on("data", function (chunk) {
+      const s = chunk.toString("utf8");
+      text += s;
+      process.stderr.write(s);
+    });
+    child.on("close", function (code) {
+      resolve({ ok: code === 0, text: text });
+    });
+    child.on("error", function (err) {
+      resolve({ ok: false, text: String((err && err.message) || err) });
+    });
+  });
 }
 
 async function main() {
@@ -99,7 +126,6 @@ async function main() {
 
   // ---------- 3. 存档 ----------
   const message = (await asker.ask("  这次改了什么？（直接回车 ＝ 日常更新）：")) || "日常更新";
-  asker.close();
   line("");
 
   git(["add", "-A"]);
@@ -116,20 +142,63 @@ async function main() {
   line("  正在推送到 GitHub ...");
   line("  （第一次会让你在浏览器里登录 GitHub，登录一次以后就免了）");
   line("");
-  try {
-    git(["push", "-u", "origin", "HEAD"]);
-  } catch (err) {
+
+  let pushed = false;
+  let failure = "";
+  for (let attempt = 1; attempt <= 2 && !pushed; attempt++) {
+    const result = await gitStreaming(["push", "-u", "origin", "HEAD"]);
+    if (result.ok) {
+      pushed = true;
+      break;
+    }
+    failure = result.text || "";
+    // 「找不到仓库」是最常见的一种：要么仓库没建，要么地址填错。
+    // 这种可以当场问一次，改完地址直接重试，不用关窗口重来。
+    const notFound = /not found|does not exist|does not appear to be a git repository|仓库不存在/i.test(failure);
+    if (!notFound || attempt === 2) break;
+
     line("");
-    line("  [×] 推送没有成功。");
-    line("      把上面那段报错截图发给 Codex，我来判断。");
+    line("  [×] GitHub 说找不到这个仓库：");
+    line("      " + remote);
     line("");
-    line("      常见原因：");
-    line("      1. GitHub 上那个仓库还没建 → 先建空仓库");
-    line("      2. 用户名或仓库名打错了 → 双击本文件重来一次");
-    line("      3. 没登录 → 再双击一次，浏览器会弹登录页");
+    line("      三种可能：");
+    line("      1. GitHub 上还没建这个仓库；");
+    line("      2. 上面地址里的用户名或仓库名不对；");
+    line("      3. 浏览器里登录的不是这个账号，或者登录没走完 ——");
+    line("         这种直接重试一次就能过。");
+    line("");
+    const fix = await asker.ask("  要现在改地址重试吗？（回车 ＝ 改；输 n ＝ 先不改）：");
+    if (String(fix).trim().toLowerCase() === "n") break;
+    const user = await asker.ask("  你的 GitHub 用户名：");
+    const repo = (await asker.ask("  仓库名（直接回车 ＝ jintian）：")) || "jintian";
+    if (!String(user).trim()) break;
+    const url = "https://github.com/" + String(user).trim() + "/" + String(repo).trim() + ".git";
+    try {
+      git(["remote", "set-url", "origin", url]);
+    } catch (setErr) {
+      break;
+    }
+    remote = url;
+    line("");
+    line("  [√] 已改成：" + url + "，再试一次 ...");
+    line("");
+  }
+
+  if (!pushed) {
+    asker.close();
+    line("");
+    line("  [×] 还是没推上去。");
+    line("");
+    line("  请先确认两件事，然后再双击一次这个文件：");
+    line("    1. 登录 github.com，看仓库列表里有没有 jintian");
+    line("       （没有就点右上角 + → New repository 建一个空仓库）");
+    line("    2. 点右上角头像，看登录的账号名是不是你告诉我的那个");
+    line("");
+    line("  还不行就把这段截图发给 Codex。");
     line("");
     return 1;
   }
+  asker.close();
 
   line("");
   rule("=");
