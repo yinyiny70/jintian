@@ -31,6 +31,20 @@ function refreshSiteFolder() {
   return copied;
 }
 
+// 把用户粘进来的东西整理成一个干净的仓库地址。
+// 能手打当然好，但用户名里少个字母、多个空格、把 Markdown 链接一起粘进来，
+// 都会让 GitHub 回一句「找不到仓库」，很难自己看出来。所以这里统一擦干净。
+function normalizeRepoUrl(raw) {
+  let s = String(raw || "").trim();
+  const md = s.match(/\]\((https?:\/\/[^)\s]+)\)/);
+  if (md) s = md[1];
+  s = s.replace(/^[<\["'（(]+/, "").replace(/[>\]"'）)，。;；,]+$/, "").trim();
+  if (!/^https?:\/\//i.test(s)) s = "https://" + s.replace(/^\/+/, "");
+  s = s.replace(/\/+$/, ""); // 先把末尾的斜杠去掉，再判断有没有 .git
+  if (!/\.git$/i.test(s)) s += ".git";
+  return s;
+}
+
 // 推送这一步既要让你实时看到输出（比如"请在浏览器里完成登录"），
 // 又要把输出内容留下来，好在失败时判断到底是哪种原因。
 // 所以这里用 spawn 边打边存。
@@ -86,23 +100,23 @@ async function main() {
     rule("-");
     line("  还差一步：这个项目还没有关联 GitHub 仓库。");
     line("");
-    line("  请先在 GitHub 网站上建一个**空仓库**（Private 私有就行）：");
+    line("  请先在 GitHub 网站上有一个**空仓库**：");
     line("    GitHub → 右上角 + → New repository → 名字填 jintian");
     line("    ⚠️ 不要勾选 Add a README / .gitignore / license，保持空仓库");
     line("");
-    line("  建好之后，把下面两样告诉我（填在这里）：");
+    line("  然后**照抄地址**，别手打（用户名少一个字母就会失败）：");
+    line("    在仓库页面点绿色的 Code 按钮 → 选 HTTPS → 复制那一行");
     rule("-");
     line("");
-    const user = await asker.ask("  你的 GitHub 用户名：");
-    const repo = (await asker.ask("  仓库名（直接回车 ＝ jintian）：")) || "jintian";
-    if (!user) {
+    const answer = await asker.ask("  粘贴仓库地址（长这样 https://github.com/用户名/jintian.git）：");
+    if (!String(answer).trim()) {
       asker.close();
       line("");
-      line("  [×] 用户名没填，先不折腾了。想好了再双击一次这个文件。");
+      line("  [×] 地址没填，先不折腾了。想好了再双击一次这个文件。");
       line("");
       return 1;
     }
-    const url = "https://github.com/" + user.trim() + "/" + repo.trim() + ".git";
+    const url = normalizeRepoUrl(answer);
     try {
       git(["remote", "add", "origin", url]);
     } catch (err) {
@@ -114,6 +128,7 @@ async function main() {
     }
     line("");
     line("  [√] 已关联：" + url);
+    line("      请核对一下：这段地址和你在 GitHub 上复制的那行一模一样吗？");
     remote = url;
   } else {
     line("  [√] 已关联仓库：" + remote);
@@ -161,18 +176,20 @@ async function main() {
     line("  [×] GitHub 说找不到这个仓库：");
     line("      " + remote);
     line("");
-    line("      三种可能：");
+    line("      最常见的原因是**地址打错了**——用户名差一个字母、或者大小写不对");
+    line("      （GitHub 的用户名里大小写和拼写都要一模一样）。");
+    line("");
+    line("      另外两种可能：");
     line("      1. GitHub 上还没建这个仓库；");
-    line("      2. 上面地址里的用户名或仓库名不对；");
-    line("      3. 浏览器里登录的不是这个账号，或者登录没走完 ——");
-    line("         这种直接重试一次就能过。");
+    line("      2. 浏览器里登录的不是这个账号，或者登录没走完。");
+    line("");
+    line("  建议：回 GitHub 仓库页面点绿色 Code 按钮 → 复制 HTTPS 那一行 → 粘贴到这里。");
     line("");
     const fix = await asker.ask("  要现在改地址重试吗？（回车 ＝ 改；输 n ＝ 先不改）：");
     if (String(fix).trim().toLowerCase() === "n") break;
-    const user = await asker.ask("  你的 GitHub 用户名：");
-    const repo = (await asker.ask("  仓库名（直接回车 ＝ jintian）：")) || "jintian";
-    if (!String(user).trim()) break;
-    const url = "https://github.com/" + String(user).trim() + "/" + String(repo).trim() + ".git";
+    const pasted = await asker.ask("  粘贴正确的仓库地址：");
+    if (!String(pasted).trim()) break;
+    const url = normalizeRepoUrl(pasted);
     try {
       git(["remote", "set-url", "origin", url]);
     } catch (setErr) {
