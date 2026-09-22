@@ -15,7 +15,7 @@ const {
 } = require("./git-common");
 
 // 对外发布只用到这 4 个文件；其他东西（文档、测试、Git 历史）都不上传
-const SITE_FILES = ["index.html", "styles.css", "app.js", "favicon.svg"];
+const SITE_FILES = ["index.html", "styles.css", "app.js", "quotes.js", "config.js", "favicon.svg"];
 const SITE_DIR = "网页版";
 
 function refreshSiteFolder() {

@@ -23,10 +23,7 @@ async function fresh(ctx) {
   await wipe(ctx.page, ctx.appUrl, FILE_PROBE);
 }
 async function addTask(ctx, name, est) {
-  await ctx.page.click('.nav-item[data-goto="plan"]');
-  await ctx.page.fill("#new-name", name);
-  if (est) await ctx.page.fill("#new-est", String(est));
-  await ctx.page.click('[data-act="add"]');
+  await h.addTask(ctx.page, name, est);
 }
 async function names(page) {
   return page.$$eval(".task-name", (els) => els.map((e) => e.textContent.trim()));
@@ -211,7 +208,10 @@ module.exports = {
         await ctx.page.reload({ waitUntil: "load" });
         await ctx.page.waitForSelector("#app");
         await ctx.sleep(300);
-        ctx.assert.ok(await ctx.page.isVisible("#timerbar"), "刷新后计时条没了");
+        // 刷新后停在首页，首页本身就是倒计时
+        ctx.assert.ok(await ctx.page.isVisible("#home-running"), "刷新后首页没有显示还在计时");
+        await ctx.page.click('.nav-item[data-goto="plan"]');
+        ctx.assert.ok(await ctx.page.isVisible("#timerbar"), "切到今日计划后底部计时条应该出现");
         const r2 = await ctx.page.evaluate(() => window.__jintian.timerRemainingSec());
         ctx.assert.near(r1 - r2, 1.5, 1.2, "刷新后剩余时间和真实经过的时间对不上");
         await ctx.page.click('[data-act="bar-stop"]');

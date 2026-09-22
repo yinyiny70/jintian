@@ -7,7 +7,7 @@ const h = require("./helper");
 // 用 route 拦截，把同一份代码"假扮"成部署在真实域名上的样子。
 // 这样测的就是真正的网页版行为，而不是本机地址上的退化行为。
 const HOST = "http://going.example";
-const FILES = new Set(["index.html", "styles.css", "app.js", "favicon.svg"]);
+const FILES = new Set(["index.html", "styles.css", "app.js", "quotes.js", "favicon.svg"]);
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -67,7 +67,6 @@ module.exports = {
         await openWeb(ctx.page);
         await ctx.page.click('.nav-item[data-goto="plan"]');
         await ctx.page.fill("#new-name", "写季度总结");
-        await ctx.page.fill("#new-est", "40");
         await ctx.page.click('[data-act="add"]');
         await ctx.page.click('[data-act="start"]');
         await ctx.page.fill("#start-min", "1");

@@ -86,24 +86,26 @@ module.exports = {
       },
     },
     {
-      name: "跟随系统的深色设置，且深色下文字与背景不同色",
+      name: "默认固定阳光浅色（第三版起不再跟随系统），文字与背景不同色",
       async run(ctx) {
         const dark = await ctx.context.newPage();
         await dark.emulateMedia({ colorScheme: "dark" });
         await dark.goto(h.toFileUrl(h.APP_HTML), { waitUntil: "load" });
         const d = await dark.evaluate(() => {
           const s = getComputedStyle(document.body);
-          return { color: s.color, bg: s.backgroundColor };
+          return {
+            color: s.color,
+            bg: s.backgroundColor,
+            scheme: document.documentElement.style.colorScheme,
+          };
         });
         await dark.close();
-        ctx.assert.ok(d.color !== d.bg, "深色模式下文字和背景同色");
-
-        const light = await ctx.context.newPage();
-        await light.emulateMedia({ colorScheme: "light" });
-        await light.goto(h.toFileUrl(h.APP_HTML), { waitUntil: "load" });
-        const l = await light.evaluate(() => getComputedStyle(document.body).backgroundColor);
-        await light.close();
-        ctx.assert.ok(d.bg !== l, "深浅两种模式下背景色没有区别，说明没有跟随系统");
+        ctx.assert.ok(d.color !== d.bg, "文字和背景同色");
+        ctx.assert.eq(
+          d.scheme,
+          "light",
+          "第三版起默认应该是固定浅色，不该再跟着系统变深"
+        );
       },
     },
   ],

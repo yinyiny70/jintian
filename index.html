@@ -20,6 +20,7 @@
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
 </defs></svg>
 
 <div class="app" id="app" data-page="home">
@@ -40,31 +41,57 @@
       <button type="button" class="nav-item" data-goto="review"><svg class="ic"><use href="#i-review"/></svg><span>回看</span></button>
     </nav>
 
-    <button type="button" class="backup-chip" id="backup-chip" data-act="backup-open" aria-haspopup="dialog">
-      <svg class="ic"><use href="#i-backup"/></svg>
-      <span class="backup-text">
-        <span class="backup-title" id="backup-title">还没有设置备份</span>
-        <span class="backup-sub" id="backup-sub">点这里设置</span>
-      </span>
-    </button>
-  </aside>
+      <button type="button" class="backup-chip" id="backup-chip" data-act="backup-open" aria-haspopup="dialog">
+        <svg class="ic"><use href="#i-backup"/></svg>
+        <span class="backup-text">
+          <span class="backup-title" id="backup-title">还没有设置备份</span>
+          <span class="backup-sub" id="backup-sub">点这里设置</span>
+        </span>
+      </button>
+
+      <div class="theme-switch" role="group" aria-label="深浅色">
+        <button type="button" class="theme-btn" data-act="theme" data-theme="light">浅色</button>
+        <button type="button" class="theme-btn" data-act="theme" data-theme="dark">深色</button>
+        <button type="button" class="theme-btn" data-act="theme" data-theme="auto">跟随系统</button>
+      </div>
+
+      <button type="button" class="backup-chip" id="account-chip" data-act="account-open" aria-haspopup="dialog">
+        <svg class="ic"><use href="#i-user"/></svg>
+        <span class="backup-text">
+          <span class="backup-title" id="account-chip-title">没有登录</span>
+          <span class="backup-sub" id="account-chip-sub">点这里登录</span>
+        </span>
+      </button>
+    </aside>
 
   <main class="main">
 
-    <section class="page page-home" data-page="home">
-      <div class="kicker">此刻</div>
-      <div id="home-idle">
-        <div class="home-idle-text">没有在计时</div>
-        <button type="button" class="link" data-goto="plan">去排今天的事 →</button>
-      </div>
-      <div id="home-running" hidden>
-        <div class="home-task" id="home-task"></div>
-        <div class="home-time" id="home-time">00:00</div>
-        <div class="home-bar"><div class="home-bar-fill" id="home-bar"></div></div>
-      </div>
-        <hr class="hr">
-        <div class="kicker">今天专注</div>
-        <div class="home-total" id="home-total">0 分钟</div>
+      <section class="page page-home" data-page="home">
+        <div class="home-quote-wrap" id="home-quote-wrap">
+          <div class="home-quote" id="home-quote"></div>
+          <div class="home-quote-src" id="home-quote-src"></div>
+        </div>
+        <div class="home-block" id="home-status">
+          <div class="kicker">此刻</div>
+          <div id="home-idle">
+            <div class="home-idle-text">没有在计时</div>
+            <button type="button" class="link" data-goto="plan">去排今天的事 →</button>
+          </div>
+          <div id="home-running" hidden>
+            <div class="home-task" id="home-task"></div>
+            <div class="home-time" id="home-time">00:00</div>
+            <div class="home-bar"><div class="home-bar-fill" id="home-bar"></div></div>
+            <div class="home-running-actions">
+              <button type="button" class="btn tiny" data-act="home-pause" id="home-pause">暂停</button>
+              <button type="button" class="btn tiny" data-act="home-stop">结束</button>
+            </div>
+          </div>
+        </div>
+        <hr class="hr" id="home-hr">
+        <div class="home-block" id="home-total-block">
+          <div class="kicker">今天专注</div>
+          <div class="home-total" id="home-total">0 分钟</div>
+        </div>
         <p class="web-notice" id="web-notice" hidden>数据只存在你这台设备的浏览器里，不会上传到任何地方。</p>
       </section>
 
@@ -75,14 +102,10 @@
           <div class="page-sub" id="plan-sub"></div>
         </div>
       </header>
-      <div class="add">
-        <input type="text" class="input grow" id="new-name" placeholder="今天还要做什么…" aria-label="任务名称">
-        <span class="add-est">
-          <input type="number" class="input num" id="new-est" value="30" min="1" max="600" aria-label="预估分钟">
-          <span class="unit">分钟</span>
-        </span>
-        <button type="button" class="btn primary" data-act="add">添加</button>
-      </div>
+        <div class="add">
+          <input type="text" class="input grow" id="new-name" placeholder="今天还要做什么…" aria-label="任务名称">
+          <button type="button" class="btn primary" data-act="add">添加</button>
+        </div>
       <ul class="tasks" id="tasks"></ul>
     </section>
 
@@ -219,9 +242,44 @@
       </div>
     </div>
 
+    <div class="dialog" id="dialog-account" role="dialog" aria-modal="true" aria-labelledby="account-title" hidden>
+      <h2 class="dialog-title" id="account-title">账号</h2>
+      <p class="dialog-sub" id="account-status"></p>
+
+      <div id="account-out">
+        <label class="field">
+          <span class="field-label">用户名</span>
+          <input type="text" class="input" id="account-name" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="用户名">
+        </label>
+        <label class="field">
+          <span class="field-label">密码</span>
+          <input type="password" class="input" id="account-pass" autocomplete="current-password" aria-label="密码">
+        </label>
+        <p class="dialog-note" id="account-msg"></p>
+        <div class="dialog-actions column">
+          <button type="button" class="btn primary block" data-act="account-login">登录</button>
+          <button type="button" class="btn block" data-act="account-register">注册一个新账号</button>
+        </div>
+      </div>
+
+      <div id="account-in" hidden>
+        <p class="dialog-note" id="account-synced"></p>
+        <div class="dialog-actions column">
+          <button type="button" class="btn block" data-act="account-sync">立刻同步一次</button>
+          <button type="button" class="btn block" data-act="account-logout">退出登录</button>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-act="account-close">关闭</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
+<script src="config.js"></script>
+<script src="quotes.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

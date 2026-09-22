@@ -8,21 +8,22 @@
 :root {
   color-scheme: light dark;
 
-  /* 环境底色：中性底 + 四团柔光。
+  /* 环境底色：暖奶油底 + 四团柔光（白／蜜色／杏色／淡苔绿）。
      这几团光是纯抽象的光斑，用来给玻璃提供"可折射的内容"——
      没有天空、没有云、没有任何气象形状。 */
-  --bg: light-dark(#c7cddb, #0a0c10);
-  --glow-1: light-dark(rgba(255, 255, 255, 1), rgba(64, 200, 166, 0.32));
-  --glow-2: light-dark(rgba(74, 190, 164, 0.78), rgba(104, 112, 176, 0.2));
-  --glow-3: light-dark(rgba(255, 172, 116, 0.66), rgba(230, 140, 100, 0.2));
-  --glow-4: light-dark(rgba(140, 144, 190, 0.5), rgba(50, 62, 84, 0.55));
-  --vignette: light-dark(rgba(32, 38, 54, 0.16), rgba(0, 0, 0, 0.5));
+  --bg: light-dark(#efe4cf, #171310);
+  --glow-1: light-dark(rgba(255, 255, 255, 1), rgba(255, 196, 128, 0.16));
+  --glow-2: light-dark(rgba(250, 213, 150, 0.8), rgba(222, 152, 92, 0.15));
+  --glow-3: light-dark(rgba(246, 196, 160, 0.7), rgba(152, 118, 152, 0.12));
+  --glow-4: light-dark(rgba(213, 226, 194, 0.6), rgba(86, 76, 64, 0.5));
+  --vignette: light-dark(rgba(126, 100, 62, 0.14), rgba(0, 0, 0, 0.5));
+  --destructive: light-dark(#a83a2c, #f0937f);
 
   /* 玻璃三层：越靠上越实；数值刻意留得透，好让底下的光透过来 */
-  --glass-1: light-dark(rgba(255, 255, 255, 0.28), rgba(22, 25, 32, 0.32));
-  --glass-2: light-dark(rgba(255, 255, 255, 0.58), rgba(46, 50, 59, 0.52));
-  --glass-3: light-dark(rgba(255, 255, 255, 0.7), rgba(58, 62, 72, 0.62));
-  --glass-4: light-dark(rgba(255, 255, 255, 0.8), rgba(64, 68, 78, 0.74));
+  --glass-1: light-dark(rgba(255, 253, 246, 0.34), rgba(38, 30, 24, 0.34));
+  --glass-2: light-dark(rgba(255, 253, 246, 0.66), rgba(58, 47, 38, 0.54));
+  --glass-3: light-dark(rgba(255, 253, 246, 0.78), rgba(70, 57, 46, 0.64));
+  --glass-4: light-dark(rgba(255, 253, 246, 0.86), rgba(80, 66, 54, 0.76));
 
   /* 玻璃的边与高光 */
   --sheen: light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.08));
@@ -229,6 +230,41 @@ body {
 .backup-title { font-size: 12px; color: var(--text); font-weight: 500; }
 .backup-sub { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- 深浅色切换 ---------- */
+.theme-switch {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 999px;
+  background-color: var(--glass-2);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 1px 0 var(--edge-top-soft);
+}
+.theme-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.18s var(--ease-out), color 0.18s var(--ease-out),
+              box-shadow 0.18s var(--ease-out);
+}
+.theme-btn:hover { color: var(--text); background-color: var(--hairline-soft); }
+.theme-btn[aria-pressed="true"] {
+  color: var(--text);
+  font-weight: 600;
+  background-color: var(--glass-3);
+  box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow-tile);
+}
+
 /* ---------- 页面通用 ---------- */
 .page { display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -267,6 +303,33 @@ body {
 
 /* ---------- 首页：一屏只有两组信息，靠留白和层级撑住 ---------- */
 .page-home { justify-content: center; gap: 14px; }
+
+/* ---------- 首页金句 ---------- */
+.home-quote-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 10px;
+  max-width: 720px;
+}
+.home-quote {
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+}
+.home-quote.is-in { opacity: 1; transform: none; }
+.home-quote-src {
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.home-block { display: flex; flex-direction: column; gap: 2px; }
+.home-running-actions { display: flex; gap: 8px; margin-top: 16px; }
 .home-idle-text {
   font-size: 30px;
   font-weight: 500;
@@ -722,6 +785,7 @@ body {
 .dialog-title { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .dialog-sub { margin: 0; font-size: 13px; color: var(--muted); word-break: break-word; white-space: pre-wrap; }
 .dialog-note { margin: 0; font-size: 12px; color: var(--muted); }
+.dialog-note.is-error { color: var(--destructive); }
 .field { display: flex; flex-direction: column; gap: 7px; }
 .field-label { font-size: 12.5px; color: var(--muted); }
 .field-row { display: flex; align-items: center; gap: 9px; }

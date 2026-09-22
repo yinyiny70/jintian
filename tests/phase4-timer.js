@@ -13,9 +13,7 @@ async function fresh(ctx) {
 }
 
 async function addTask(ctx, name, est) {
-  await ctx.page.fill("#new-name", name);
-  await ctx.page.fill("#new-est", String(est));
-  await ctx.page.click('[data-act="add"]');
+  await h.addTask(ctx.page, name, est);
 }
 
 // 把结束时刻拨到过去，等价于「时间到了」，不用真等几分钟
@@ -222,7 +220,10 @@ module.exports = {
         await ctx.page.reload({ waitUntil: "load" });
         await ctx.page.waitForSelector("#app");
         await ctx.sleep(300);
-        ctx.assert.ok(await ctx.page.isVisible("#timerbar"), "刷新后计时条没了");
+        // 刷新后停在首页，首页本身就是倒计时（第三条需求：计时中首页只显示倒计时）
+        ctx.assert.ok(await ctx.page.isVisible("#home-running"), "刷新后首页没有显示还在计时");
+        await ctx.page.click('.nav-item[data-goto="plan"]');
+        ctx.assert.ok(await ctx.page.isVisible("#timerbar"), "切到今日计划后底部计时条应该出现");
         const after = await ctx.page.evaluate(() => window.__jintian.timerRemainingSec());
         ctx.assert.ok(after < before, "刷新后剩余时间没有继续减少");
         ctx.assert.near(before - after, 1.5, 1.2, "刷新后的剩余时间和真实经过的时间对不上");

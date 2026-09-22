@@ -13,10 +13,7 @@ async function fresh(ctx) {
 }
 
 async function addTaskAndUseIt(ctx, name, est) {
-  await ctx.page.click('.nav-item[data-goto="plan"]');
-  await ctx.page.fill("#new-name", name);
-  await ctx.page.fill("#new-est", String(est));
-  await ctx.page.click('[data-act="add"]');
+  await h.addTask(ctx.page, name, est);
   await ctx.page.click(".task [data-act='start']");
   await ctx.page.fill("#start-min", "1");
   await ctx.page.click('[data-act="start-confirm"]');

@@ -73,6 +73,27 @@ async function openApp(page, url) {
   await dismissBackupPrompt(page);
 }
 
+// 第三版起：添加任务只写名字（不再填预估时长），预估改成在任务行上设置。
+// 下面两个函数让测试继续走真实的界面路径。
+async function setEstimateOfLast(page, est) {
+  const id = await page.evaluate(() => {
+    const j = window.__jintian;
+    const list = j.state.tasks[j.todayKey()];
+    return list.length ? list[list.length - 1].id : null;
+  });
+  if (!id) throw new Error("列表里还没有任务，设不了预估");
+  await page.click('.task[data-id="' + id + '"] [data-act="edit"]');
+  await page.fill('[data-est-input="' + id + '"]', String(est));
+  await page.click('[data-act="edit-done"]');
+}
+
+async function addTask(page, name, est) {
+  await page.click('.nav-item[data-goto="plan"]');
+  await page.fill("#new-name", name);
+  await page.click('[data-act="add"]');
+  if (est) await setEstimateOfLast(page, est);
+}
+
 function fail(message) {
   throw new Error(message);
 }
@@ -139,5 +160,7 @@ module.exports = {
   sleep,
   openApp,
   dismissBackupPrompt,
+  addTask,
+  setEstimateOfLast,
   assert,
 };

@@ -12,10 +12,7 @@ async function fresh(ctx) {
 }
 
 async function addTask(ctx, name, est) {
-  await ctx.page.click('.nav-item[data-goto="plan"]');
-  await ctx.page.fill("#new-name", name);
-  await ctx.page.fill("#new-est", String(est));
-  await ctx.page.click('[data-act="add"]');
+  await h.addTask(ctx.page, name, est);
   await ctx.page.click('.nav-item[data-goto="home"]');
 }
 
@@ -97,8 +94,12 @@ module.exports = {
 
         const home = await ctx.page.evaluate(() => {
           const section = document.querySelector('.page[data-page="home"]');
+          // 第三版起首页多了一句会变的金句，这里只检查"两组状态信息"那两块，
+          // 免得金句里正好出现"完成""预估"之类的词造成误报。
           return {
-            text: section.innerText,
+            text: ["home-status", "home-total-block"]
+              .map((id) => (document.getElementById(id) ? document.getElementById(id).innerText : ""))
+              .join("\n"),
             tasks: section.querySelectorAll(".task, .tasks, .cal, .cal-grid, textarea").length,
           };
         });

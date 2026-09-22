@@ -18,10 +18,7 @@ async function reset(ctx) {
 }
 
 async function addTask(ctx, name, est) {
-  await ctx.page.click('.nav-item[data-goto="plan"]');
-  await ctx.page.fill("#new-name", name);
-  await ctx.page.fill("#new-est", String(est));
-  await ctx.page.click('[data-act="add"]');
+  await h.addTask(ctx.page, name, est);
   await ctx.sleep(400); // 等自动保存
 }
 
@@ -49,8 +46,8 @@ module.exports = {
         await ctx.page.waitForSelector("#app");
         await ctx.page.click('.nav-item[data-goto="plan"]');
         ctx.assert.eq((await taskNames(ctx.page)).join("/"), "写季度总结", "刷新后任务没了");
-        const est = await ctx.page.inputValue("#new-est");
-        ctx.assert.eq(est, "30", "输入框被意外改动");
+        // 第三版起：添加栏不该再有"分钟数"输入框
+        ctx.assert.eq(await ctx.page.$("#new-est"), null, "添加栏不该再有分钟数输入框");
         const meta = await ctx.page.textContent(".task-meta");
         ctx.assert.includes(meta, "预估 40 分钟", "预估时长没有保存");
       },

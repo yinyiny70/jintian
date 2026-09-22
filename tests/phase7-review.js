@@ -122,7 +122,6 @@ module.exports = {
         await fresh(ctx);
         await ctx.page.click('.nav-item[data-goto="plan"]');
         await ctx.page.fill("#new-name", "写季度总结");
-        await ctx.page.fill("#new-est", "40");
         await ctx.page.click('[data-act="add"]');
         await ctx.page.click('.nav-item[data-goto="notes"]');
         await ctx.page.fill("#summary", "今天把最重要的一件事做完了。");

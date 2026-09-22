@@ -14,9 +14,10 @@ async function fresh(ctx) {
 }
 
 async function addViaButton(ctx, name, est) {
+  // 第三版起添加栏只有名字；要给预估就进编辑状态设
   await ctx.page.fill("#new-name", name);
-  await ctx.page.fill("#new-est", String(est));
   await ctx.page.click('[data-act="add"]');
+  if (est) await h.setEstimateOfLast(ctx.page, est);
 }
 
 async function names(page) {
@@ -33,7 +34,6 @@ module.exports = {
         await fresh(ctx);
         await addViaButton(ctx, "写季度总结", 40);
         await ctx.page.fill("#new-name", "读 30 页书");
-        await ctx.page.fill("#new-est", "45");
         await ctx.page.press("#new-name", "Enter");
         await ctx.assert.eq((await names(ctx.page)).join("/"), "写季度总结/读 30 页书");
 
