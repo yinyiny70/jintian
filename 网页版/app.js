@@ -106,6 +106,13 @@
         backupAsked: false,
         lastSummaryAt: null,
         theme: DEFAULT_THEME
+      },
+      points: {
+        balance: 0, // 现在有多少分
+        earned: 0, // 一共赚过多少（花掉不减，用来看"总共攒过多少"）
+        days: {}, // "2026-09-23": { checkin: true, focus: false, tasks: false }
+        unlocked: [], // 已经换到手的东西
+        using: { theme: "", paper: "", frame: "", ornaments: [] } // 现在正用着的
       }
     };
   }
@@ -149,6 +156,35 @@
       next.settings.backupAsked = !!data.settings.backupAsked;
       next.settings.lastSummaryAt = data.settings.lastSummaryAt || null;
       next.settings.theme = THEMES.indexOf(data.settings.theme) !== -1 ? data.settings.theme : DEFAULT_THEME;
+    }
+    // 积分（第四版才有的东西，老数据读进来就是 0 分，不影响用）
+    if (data.points && typeof data.points === "object") {
+      var p = data.points;
+      next.points.balance = Math.max(0, Math.round(Number(p.balance) || 0));
+      next.points.earned = Math.max(0, Math.round(Number(p.earned) || 0));
+      if (p.days && typeof p.days === "object") {
+        Object.keys(p.days).forEach(function (d) {
+          var day = p.days[d];
+          if (day && typeof day === "object") {
+            next.points.days[d] = {
+              checkin: !!day.checkin,
+              focus: !!day.focus,
+              tasks: !!day.tasks
+            };
+          }
+        });
+      }
+      if (Array.isArray(p.unlocked)) {
+        next.points.unlocked = p.unlocked.filter(function (x) { return typeof x === "string"; });
+      }
+      if (p.using && typeof p.using === "object") {
+        next.points.using.theme = typeof p.using.theme === "string" ? p.using.theme : "";
+        next.points.using.paper = typeof p.using.paper === "string" ? p.using.paper : "";
+        next.points.using.frame = typeof p.using.frame === "string" ? p.using.frame : "";
+        next.points.using.ornaments = Array.isArray(p.using.ornaments)
+          ? p.using.ornaments.filter(function (x) { return typeof x === "string"; }).slice(0, 3)
+          : [];
+      }
     }
     Object.keys(next.tasks).forEach(function (date) {
       if (!Array.isArray(next.tasks[date])) next.tasks[date] = [];
@@ -201,6 +237,239 @@
 
   function spentSecondsOf(date) {
     return readTasks(date).reduce(function (sum, t) { return sum + (Number(t.spentSec) || 0); }, 0);
+  }
+
+  /* ============================================================
+   * 积分（第四版）
+   * 规则：每天三件事，各能拿一次，一天最多 13 分。
+   *   签到 +5（自己点）· 专注满 5 分钟 +3（自动）· 完成满 5 个任务 +5（自动）
+   * 分可以换摆件、主题、金句底纹和花边；换过就永久归你，不重复扣分。
+   * ========================================================== */
+
+  var POINTS = {
+    checkin: 5,
+    focusNeed: 300, // 秒
+    focusGet: 3,
+    doneNeed: 5,
+    doneGet: 5,
+    dailyMax: 13,
+    keepDays: 90 // 只留最近 90 天的记录，免得数据文件越长越大
+  };
+
+  function pointsOf(date) {
+    return state.points.days[date] || { checkin: false, focus: false, tasks: false };
+  }
+
+  function doneCountOf(date) {
+    return readTasks(date).filter(function (t) { return !!t.done; }).length;
+  }
+
+  // 今天三件事的进度（只读，看一眼不会生成任何记录）
+  function pointsStatus() {
+    var date = todayKey();
+    var day = pointsOf(date);
+    var focusSec = spentSecondsOf(date);
+    var doneCount = doneCountOf(date);
+    return {
+      date: date,
+      checkin: !!day.checkin,
+      focus: !!day.focus,
+      tasks: !!day.tasks,
+      focusSec: focusSec,
+      focusReady: focusSec >= POINTS.focusNeed,
+      doneCount: doneCount,
+      doneReady: doneCount >= POINTS.doneNeed,
+      balance: state.points.balance,
+      earned: state.points.earned,
+      all: !!day.checkin && !!day.focus && !!day.tasks
+    };
+  }
+
+  // 加分。同一件事一天只加一次；再加一层当天上限的保险
+  function awardPoints(kind) {
+    if (kind !== "checkin" && kind !== "focus" && kind !== "tasks") return 0;
+    var date = todayKey();
+    var day = state.points.days[date];
+    if (!day) {
+      day = { checkin: false, focus: false, tasks: false };
+      state.points.days[date] = day;
+    }
+    if (day[kind]) return 0;
+    var gain = kind === "checkin" ? POINTS.checkin : kind === "focus" ? POINTS.focusGet : POINTS.doneGet;
+    var gotToday =
+      (day.checkin ? POINTS.checkin : 0) + (day.focus ? POINTS.focusGet : 0) + (day.tasks ? POINTS.doneGet : 0);
+    if (gotToday + gain > POINTS.dailyMax) gain = Math.max(0, POINTS.dailyMax - gotToday);
+    day[kind] = true;
+    state.points.balance += gain;
+    state.points.earned += gain;
+    prunePointDays();
+    saveNow();
+    return gain;
+  }
+
+  function prunePointDays() {
+    var keys = Object.keys(state.points.days).sort();
+    while (keys.length > POINTS.keepDays) delete state.points.days[keys.shift()];
+  }
+
+  // 自动结账：专注够了、完成够了，都是自动加分
+  function syncAutoPoints() {
+    var st = pointsStatus();
+    if (st.focusReady && !st.focus) awardPoints("focus");
+    st = pointsStatus();
+    if (st.doneReady && !st.tasks) awardPoints("tasks");
+  }
+
+  function doCheckin() {
+    var gain = awardPoints("checkin");
+    renderAll();
+    return gain;
+  }
+
+  /* ---------- 小铺里的东西 ----------
+     价格：摆件 30 · 主题 80 · 底纹 25 · 花边 25。
+     每天全做完 13 分，第 3 天能换第一个摆件，全收齐大约 70 多天。 */
+
+  var SHOP_SHELVES = [
+    { kind: "ornament", name: "角落摆件", hint: "摆在首页角落，最多同时摆 3 个" },
+    { kind: "theme", name: "主题配色", hint: "换底色和主色（墨绿是默认的）" },
+    { kind: "paper", name: "金句底纹", hint: "给首页那句字换一种纸" },
+    { kind: "frame", name: "金句花边", hint: "给首页那句字加一圈框" }
+  ];
+
+  var SHOP_ITEMS = [
+    { id: "orn-plant", kind: "ornament", name: "绿植", price: 30, icon: "i-orn-plant" },
+    { id: "orn-books", kind: "ornament", name: "一摞书", price: 30, icon: "i-orn-books" },
+    { id: "orn-pen", kind: "ornament", name: "笔筒", price: 30, icon: "i-orn-pen" },
+    { id: "orn-hourglass", kind: "ornament", name: "沙漏", price: 30, icon: "i-orn-hourglass" },
+    { id: "orn-cup", kind: "ornament", name: "咖啡杯", price: 30, icon: "i-orn-cup" },
+    { id: "orn-lamp", kind: "ornament", name: "台灯", price: 30, icon: "i-orn-lamp" },
+    { id: "orn-gramo", kind: "ornament", name: "留声机", price: 30, icon: "i-orn-gramo" },
+    { id: "orn-cat", kind: "ornament", name: "趴着的猫", price: 30, icon: "i-orn-cat" },
+
+    { id: "th-zhu", kind: "theme", name: "朱砂", price: 80, swatch: "th-zhu" },
+    { id: "th-dian", kind: "theme", name: "靛蓝", price: 80, swatch: "th-dian" },
+    { id: "th-ou", kind: "theme", name: "藕荷", price: 80, swatch: "th-ou" },
+    { id: "th-dai", kind: "theme", name: "黛青", price: 80, swatch: "th-dai" },
+    { id: "th-hu", kind: "theme", name: "琥珀", price: 80, swatch: "th-hu" },
+    { id: "th-song", kind: "theme", name: "松烟", price: 80, swatch: "th-song" },
+
+    { id: "pa-xuan", kind: "paper", name: "宣纸", price: 25, swatch: "pa-xuan" },
+    { id: "pa-grid", kind: "paper", name: "格线纸", price: 25, swatch: "pa-grid" },
+    { id: "pa-line", kind: "paper", name: "信笺横线", price: 25, swatch: "pa-line" },
+    { id: "pa-gold", kind: "paper", name: "洒金纸", price: 25, swatch: "pa-gold" },
+    { id: "pa-cloth", kind: "paper", name: "麻布纹", price: 25, swatch: "pa-cloth" },
+
+    { id: "fr-double", kind: "frame", name: "双细线框", price: 25, swatch: "fr-double" },
+    { id: "fr-corner", kind: "frame", name: "四角回纹", price: 25, swatch: "fr-corner" },
+    { id: "fr-stitch", kind: "frame", name: "缝线边", price: 25, swatch: "fr-stitch" },
+    { id: "fr-vine", kind: "frame", name: "藤蔓角花", price: 25, swatch: "fr-vine" }
+  ];
+
+  function shopItemById(id) {
+    for (var i = 0; i < SHOP_ITEMS.length; i++) {
+      if (SHOP_ITEMS[i].id === id) return SHOP_ITEMS[i];
+    }
+    return null;
+  }
+
+  function ownsItem(id) {
+    return state.points.unlocked.indexOf(id) !== -1;
+  }
+
+  // 换一件东西：分够就扣分、记下来（换过就永久归你，不会重复扣）
+  function buyItem(id) {
+    var item = shopItemById(id);
+    if (!item || ownsItem(id)) return false;
+    if (state.points.balance < item.price) return false;
+    state.points.balance -= item.price;
+    state.points.unlocked.push(id);
+    saveNow();
+    renderAll();
+    return true;
+  }
+
+  /* ---------- 把换到的东西用上 ---------- */
+
+  var ORNAMENT_LIMIT = 3;
+
+  function placedOrnaments() {
+    return state.points.using.ornaments.filter(function (id) {
+      return ownsItem(id);
+    });
+  }
+
+  // 主题 / 底纹 / 花边：点一下用上，再点一下收起来（回到默认）
+  function equipItem(id) {
+    var item = shopItemById(id);
+    if (!item || !ownsItem(id) || item.kind === "ornament") return false;
+    var key = item.kind;
+    state.points.using[key] = state.points.using[key] === id ? "" : id;
+    saveNow();
+    applyDecor();
+    renderAll();
+    return true;
+  }
+
+  // 摆件：摆出来 / 收起来（最多同时摆 3 个）
+  function toggleOrnament(id) {
+    if (!ownsItem(id)) return false;
+    var list = state.points.using.ornaments;
+    var at = list.indexOf(id);
+    if (at >= 0) {
+      list.splice(at, 1);
+    } else {
+      if (list.length >= ORNAMENT_LIMIT) return false;
+      list.push(id);
+    }
+    saveNow();
+    renderAll();
+    return true;
+  }
+
+  // 把"正在用"的东西真正画到界面上：主题给整页，底纹花边给首页那句字，摆件给首页角落
+  function applyDecor() {
+    var root = document.documentElement;
+    var rootClasses = String(root.className || "")
+      .split(/\s+/)
+      .filter(function (c) { return c && c.indexOf("th-") !== 0; });
+    var theme = state.points.using.theme;
+    if (theme && ownsItem(theme)) rootClasses.push(theme);
+    root.className = rootClasses.join(" ");
+
+    var wrap = $("home-quote-wrap");
+    if (wrap) {
+      var keep = String(wrap.className || "")
+        .split(/\s+/)
+        .filter(function (c) {
+          return c && c.indexOf("pa-") !== 0 && c.indexOf("fr-") !== 0 && c !== "has-paper" && c !== "has-frame";
+        });
+      var paper = state.points.using.paper;
+      var frame = state.points.using.frame;
+      if (paper && ownsItem(paper)) {
+        keep.push(paper);
+        keep.push("has-paper");
+      }
+      if (frame && ownsItem(frame)) {
+        keep.push(frame);
+        keep.push("has-frame");
+      }
+      wrap.className = keep.join(" ");
+    }
+  }
+
+  function renderSill() {
+    var sill = $("home-sill");
+    if (!sill) return;
+    var placed = placedOrnaments();
+    var running = !!state.timer;
+    sill.hidden = running || placed.length === 0;
+    sill.innerHTML = placed
+      .map(function (id) {
+        var item = shopItemById(id);
+        return item && item.icon ? '<svg class="ic"><use href="#' + item.icon + '"/></svg>' : "";
+      })
+      .join("");
   }
 
   function dayHasContent(date) {
@@ -588,6 +857,11 @@
     var q = list[idx];
     var textEl = $("home-quote");
     var srcEl = $("home-quote-src");
+    // 第四版：三种内容用三种字（古诗＝行楷、歌词＝楷体、名言＝原来的字）。
+    // 只挂一个分类名在标签上，具体用哪个字体写在 styles.css 里。
+    var kind = q.k === "gu" ? "poem" : q.k === "ge" ? "lyric" : "saying";
+    wrap.setAttribute("data-kind", kind);
+    textEl.className = "home-quote is-" + kind;
     textEl.classList.remove("is-in");
     textEl.textContent = q.t;
     srcEl.textContent = q.s || "";
@@ -841,46 +1115,69 @@
       method: "POST",
       body: { username: username, password: password },
     })
-      .then(function (r) {
-        if (r.status !== 200) {
-          setAccountMessage((r.body && r.body.error) || "没成功，再试一次", true);
-          return;
-        }
-        account.username = r.body.username || username;
-        account.token = r.body.token;
-        account.baseAt = Number(r.body.updatedAt) || 0;
-        account.syncedAt = 0;
-        saveAccount();
-        passEl.value = "";
-
-        var remote = r.body.data;
-        if (remote) {
-          applyRemote(remote, account.baseAt);
-          setAccountMessage("登录成功，云端的记录已经取下来了。");
-        } else if (hasAnyData()) {
-          // 云端是空的，而本机有记录 → 问一句要不要传上去
-          openConfirm(
-            "把本机的记录传上去吗？",
-            "这个账号云端还是空的，而这台电脑上已经有记录。要把本机的记录传到这个账号里吗？",
-            "传上去",
-            function () {
-              pushToCloud();
-              setAccountMessage("登录成功，本机记录正在传上去。");
-            }
+      .then(
+        function (r) {
+          // 服务器已经回话了。从这里往下的毛病都是"页面自己处理时出的毛病"，
+          // 不能再报成"连不上服务器"——那会把人带到错的方向上去找原因。
+          try {
+            handleAuthReply(r, username, passEl);
+          } catch (err) {
+            setAccountMessage("服务器回话了，但页面处理时出错了：" + describeError(err), true);
+          }
+        },
+        function (err) {
+          // 请求根本没成功（断网、地址错、被挡）。把底层那句英文也带上，
+          // 这样至少能分清是哪一种毛病。
+          setAccountMessage(
+            "连不上服务器（" + describeError(err) + "）。检查网络，或者云端地址填错了。",
+            true
           );
-          setAccountMessage("登录成功。");
-        } else {
-          setAccountMessage("登录成功。");
         }
-        renderAll();
-        // 登录成功后自动收起这个窗（状态条上会显示用户名）。
-        // 但如果正在问"要不要把本机记录传上去"，那就别关掉。
-        if ($("dialog-confirm").hidden) closeDialogs();
-        else renderAccountDialog();
-      })
-      .catch(function () {
-        setAccountMessage("连不上服务器。检查网络，或者云端地址填错了。", true);
-      });
+      );
+  }
+
+  function describeError(err) {
+    if (!err) return "没有说明";
+    return err.message ? String(err.message) : String(err);
+  }
+
+  // 服务器回话之后要做的事（单独拎出来，好和"请求没通"分开处理）
+  function handleAuthReply(r, username, passEl) {
+    if (r.status !== 200) {
+      setAccountMessage((r.body && r.body.error) || "没成功，再试一次", true);
+      return;
+    }
+    account.username = r.body.username || username;
+    account.token = r.body.token;
+    account.baseAt = Number(r.body.updatedAt) || 0;
+    account.syncedAt = 0;
+    saveAccount();
+    passEl.value = "";
+
+    var remote = r.body.data;
+    if (remote) {
+      applyRemote(remote, account.baseAt);
+      setAccountMessage("登录成功，云端的记录已经取下来了。");
+    } else if (hasAnyData()) {
+      // 云端是空的，而本机有记录 → 问一句要不要传上去
+      openConfirm(
+        "把本机的记录传上去吗？",
+        "这个账号云端还是空的，而这台电脑上已经有记录。要把本机的记录传到这个账号里吗？",
+        "传上去",
+        function () {
+          pushToCloud();
+          setAccountMessage("登录成功，本机记录正在传上去。");
+        }
+      );
+      setAccountMessage("登录成功。");
+    } else {
+      setAccountMessage("登录成功。");
+    }
+    renderAll();
+    // 登录成功后自动收起这个窗（状态条上会显示用户名）。
+    // 但如果正在问"要不要把本机记录传上去"，那就别关掉。
+    if ($("dialog-confirm").hidden) closeDialogs();
+    else renderAccountDialog();
   }
 
   function logoutAccount() {
@@ -1012,25 +1309,30 @@
   function renderBackupChip() {
     var chip = $("backup-chip");
     if (!chip) return;
-      var nameEl = $("backup-title");
-      var subEl = $("backup-sub");
-      if (!backupHandle) {
-        if (IS_WEB) {
-          nameEl.textContent = "数据存在这个浏览器里";
-          subEl.textContent = "点这里可存成文件";
-        } else {
-          nameEl.textContent = "还没有设置备份";
-          subEl.textContent = "点这里设置";
-        }
-        return;
+    var nameEl = $("backup-title");
+    var subEl = $("backup-sub");
+    var name = "";
+    var sub = "";
+    if (!backupHandle) {
+      if (IS_WEB) {
+        name = "数据存在这个浏览器里";
+        sub = "点这里可存成文件";
+      } else {
+        name = "还没有设置备份";
+        sub = "点这里设置";
       }
-    if (backupFailed) {
-      nameEl.textContent = "上次备份没成功";
-      subEl.textContent = "点这里看看";
-      return;
+    } else if (backupFailed) {
+      name = "上次备份没成功";
+      sub = "点这里看看";
+    } else {
+      name = "已自动保存到文件";
+      sub = (backupHandle.name || "备份文件") + " · " + clockOf(state.settings.backupAt);
     }
-    nameEl.textContent = "已自动保存到文件";
-    subEl.textContent = (backupHandle.name || "备份文件") + " · " + clockOf(state.settings.backupAt);
+    nameEl.textContent = name;
+    subEl.textContent = sub;
+    // 第四版：侧边栏只剩一个小按钮，状态就靠悬停提示和读屏文字来交代
+    chip.title = name + " · " + sub;
+    chip.setAttribute("aria-label", "备份与恢复：" + name + "，" + sub);
   }
 
   function renderBackupDialog() {
@@ -1287,6 +1589,9 @@
   }
 
   function renderAll() {
+    // 先把"今天该给的自动分"结掉（专注满了、任务完成够了），再画界面
+    syncAutoPoints();
+    applyDecor();
     applyTheme();
     renderDateLabels();
     renderPlan();
@@ -1294,8 +1599,142 @@
     renderTimerBar();
     renderNotes();
     renderReview();
+    renderShop();
+    renderSill();
     renderBackupChip();
     renderAccountChip();
+  }
+
+  /* ---------- 小铺 ---------- */
+
+  function paintDaily(id, done) {
+    var el = $(id);
+    if (!el) return;
+    el.classList.toggle("is-done", !!done);
+    var mark = $(id + "-mark");
+    if (mark) mark.textContent = done ? "✔" : "○";
+  }
+
+  function renderShop() {
+    var balanceEl = $("shop-balance");
+    if (!balanceEl) return;
+    var st = pointsStatus();
+    balanceEl.textContent = String(state.points.balance);
+
+    paintDaily("daily-checkin", st.checkin);
+    paintDaily("daily-focus", st.focus);
+    paintDaily("daily-done", st.tasks);
+    setText("daily-checkin-note", st.checkin ? "今天已经签过了 · +5" : "点一下，+5 分");
+    setText(
+      "daily-focus-note",
+      st.focus ? "今天已经拿到了 · +3" : "今天 " + fmtSecondsAsMinutes(st.focusSec) + " · 满 5 分钟 +3 分"
+    );
+    setText(
+      "daily-done-note",
+      st.tasks ? "今天已经拿到了 · +5" : "今天完成 " + st.doneCount + " / " + POINTS.doneNeed + " · +5 分"
+    );
+    var checkinBtn = $("daily-checkin");
+    if (checkinBtn) checkinBtn.disabled = st.checkin;
+
+    // 侧边栏那个入口上的小圆点：今天还有分没拿就亮着
+    var badge = $("shop-badge");
+    if (badge) badge.hidden = st.all;
+
+    renderShelves(st);
+  }
+
+  function itemCardHtml(item, balance) {
+    var has = ownsItem(item.id);
+    var can = balance >= item.price;
+    var art = "";
+    if (item.icon) {
+      art = '<svg class="ic"><use href="#' + item.icon + '"/></svg>';
+    } else if (item.kind === "theme") {
+      // 主题的小样：上面一块底色，下面一条主色
+      art = '<span class="swatch theme-swatch ' + item.swatch + '"></span>';
+    } else {
+      art = '<span class="swatch ' + item.swatch + '"></span>';
+    }
+    var act = "buy";
+    var label = "";
+    var enabled = false;
+    if (!has) {
+      label = can ? "换下来" : "还差 " + (item.price - balance) + " 分";
+      enabled = can;
+    } else if (item.kind === "ornament") {
+      act = "place";
+      if (state.points.using.ornaments.indexOf(item.id) >= 0) {
+        label = "正在摆着";
+        enabled = true;
+      } else if (placedOrnaments().length >= ORNAMENT_LIMIT) {
+        label = "位置满了";
+      } else {
+        label = "摆出来";
+        enabled = true;
+      }
+    } else {
+      act = "equip";
+      label = state.points.using[item.kind] === item.id ? "正在用" : "用这个";
+      enabled = true;
+    }
+    return (
+      '<button type="button" class="item' +
+      (has ? " is-owned" : "") +
+      (enabled ? "" : " is-locked") +
+      '" data-act="' +
+      act +
+      '" data-item="' +
+      item.id +
+      '"' +
+      (enabled ? "" : " disabled") +
+      ">" +
+      '<span class="item-art">' +
+      art +
+      "</span>" +
+      '<span class="item-name">' +
+      item.name +
+      "</span>" +
+      '<span class="item-price">' +
+      (has ? "已换到手" : item.price + " 分") +
+      "</span>" +
+      '<span class="item-state">' +
+      label +
+      "</span>" +
+      "</button>"
+    );
+  }
+
+  function renderShelves(st) {
+    var host = $("shop-shelves");
+    if (!host) return;
+    host.innerHTML = SHOP_SHELVES.map(function (shelf) {
+      var items = SHOP_ITEMS.filter(function (it) { return it.kind === shelf.kind; });
+      var ownedCount = items.filter(function (it) { return ownsItem(it.id); }).length;
+      return (
+        '<section class="shelf">' +
+        '<div class="shelf-head">' +
+        '<span class="shelf-name">' +
+        shelf.name +
+        "</span>" +
+        '<span class="shelf-hint">' +
+        shelf.hint +
+        "　·　已收 " +
+        ownedCount +
+        " / " +
+        items.length +
+        (shelf.kind === "ornament" ? "　·　已摆 " + placedOrnaments().length + " / " + ORNAMENT_LIMIT : "") +
+        "</span>" +
+        "</div>" +
+        '<div class="shelf-grid">' +
+        items
+          .map(function (it) {
+            return itemCardHtml(it, st.balance);
+          })
+          .join("") +
+        "</div>" +
+        "</section>"
+      );
+    }).join("");
   }
 
   /* ============================================================
@@ -1397,6 +1836,30 @@
         state.settings.theme = THEMES.indexOf(btn.dataset.theme) !== -1 ? btn.dataset.theme : DEFAULT_THEME;
         saveSoon();
         applyTheme();
+        return;
+      }
+      if (act === "checkin") {
+        doCheckin();
+        return;
+      }
+      if (act === "buy") {
+        buyItem(btn.dataset.item);
+        return;
+      }
+      if (act === "equip") {
+        equipItem(btn.dataset.item);
+        return;
+      }
+      if (act === "place") {
+        toggleOrnament(btn.dataset.item);
+        return;
+      }
+      // 临时：试玩用的加分按钮（用户看够效果之后连同 index.html 那一块一起删掉）
+      if (act === "dev-boost") {
+        state.points.balance += 1000;
+        state.points.earned += 1000;
+        saveNow();
+        renderAll();
         return;
       }
       if (act === "account-open") {
@@ -1785,6 +2248,14 @@
     quoteIndexAt: quoteIndexAt,
     quoteSlotMs: QUOTE_SLOT_MS,
     quoteCount: function () { var l = quoteList(); return l ? l.length : 0; },
+    renderQuote: function (force) { renderQuote(force); },
+    pointsStatus: pointsStatus,
+    pointsRules: POINTS,
+    checkin: doCheckin,
+    buyItem: buyItem,
+    equipItem: equipItem,
+    placeOrnament: toggleOrnament,
+    placedOrnaments: placedOrnaments,
     backupKeys: { db: BACKUP_DB, store: BACKUP_STORE, key: BACKUP_KEY },
     backupNow: function () { return writeBackup(); }
   };

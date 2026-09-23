@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>今天 · 账号连接诊断</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin:0; padding:32px 16px; background:#efe4cf; color:#3a2f26;
+         font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; line-height:1.7; }
+  main { max-width:760px; margin:0 auto; background:#fffdf8; border-radius:20px; padding:28px 30px;
+         box-shadow:0 24px 60px rgba(120,90,50,.18); }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:#8a7a67; font-size:13px; margin-bottom:18px; }
+  button { font:inherit; padding:10px 22px; border:0; border-radius:999px; background:#12614f;
+           color:#fff; cursor:pointer; }
+  button[disabled] { opacity:.5; cursor:default; }
+  ul { list-style:none; padding:0; margin:20px 0 0; }
+  li { padding:12px 16px; border-radius:14px; margin-bottom:8px; background:#f7f1e6; font-size:14px; }
+  li.good { border-left:6px solid #57b98a; }
+  li.bad { border-left:6px solid #d1503a; background:#fdf1ec; }
+  li b { display:block; }
+  li span { color:#6d6154; }
+  textarea { width:100%; box-sizing:border-box; height:190px; margin-top:16px; padding:12px;
+             border-radius:12px; border:1px solid #e0d3bd; background:#fffdf8; color:#3a2f26;
+             font-family:ui-monospace,Consolas,monospace; font-size:13px; }
+  .hint { color:#8a7a67; font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>今天 · 账号连接诊断</h1>
+  <div class="sub">双击这个文件就能打开，不用部署任何东西。它会替你试几种情况，然后把结果写成一段话。</div>
+  <button id="run">开始检查</button>
+  <ul id="rows"></ul>
+  <textarea id="report" readonly placeholder="检查完之后，这里会出现一段文字，整段复制发我即可。"></textarea>
+  <div class="hint">
+    第 8 项会真的注册一个临时账号（名字是 check 加一串数字），用完可以不管它。<br>
+    第 3、4 项是"对照实验"：分别去访问百度、以及同一个 Worker 网址，用来判断到底是"网络连不上"还是"只有跨域那种发法被挡"。
+  </div>
+</main>
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var cfg = window.JINTIAN_CONFIG || {};
+  var base = cfg.apiBase ? String(cfg.apiBase).replace(/\/+$/, "") : "";
+  if (!base && /^https?:$/.test(location.protocol)) base = location.origin;
+
+  // 对照实验用的网址。默认拿百度（国内基本一定打得开）；
+  // 自动测试时会换成别的小地址，免得测试依赖外网。
+  var controlUrl = "https://www.baidu.com/favicon.ico";
+  try {
+    var qs = new URLSearchParams(location.search);
+    if (qs.get("control")) controlUrl = qs.get("control");
+  } catch (e) { /* 忽略 */ }
+
+  var rowsEl = document.getElementById("rows");
+  var reportEl = document.getElementById("report");
+  var runBtn = document.getElementById("run");
+  var lines = [];
+  var allGood = true;
+
+  function addRow(ok, title, detail) {
+    var li = document.createElement("li");
+    li.className = ok ? "good" : "bad";
+    var b = document.createElement("b");
+    b.textContent = (ok ? "✅ " : "❌ ") + title;
+    var s = document.createElement("span");
+    s.textContent = detail;
+    li.appendChild(b);
+    li.appendChild(s);
+    rowsEl.appendChild(li);
+    if (!ok) allGood = false;
+    lines.push((ok ? "[通过] " : "[没通过] ") + title + " —— " + detail);
+  }
+
+  function reason(err) {
+    if (!err) return "没有说明";
+    return err.message ? String(err.message) : String(err);
+  }
+
+  // 带超时的请求：卡住的话最多等 8 秒就放弃，免得干等二十多秒
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, timeoutMs || 8000);
+    var opts = Object.assign({}, options || {}, { signal: ctrl.signal });
+    try {
+      return await fetch(url, opts);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // 只想知道"能不能连上"，不读内容（no-cors：浏览器只回一个不透明结果）
+  async function reachable(url) {
+    var t0 = performance.now();
+    try {
+      await fetchWithTimeout(url, { mode: "no-cors", cache: "no-store" }, 8000);
+      return { ok: true, ms: Math.round(performance.now() - t0) };
+    } catch (err) {
+      var fail = err && err.name === "AbortError" ? "卡住了，8 秒都没回应" : reason(err);
+      return { ok: false, error: fail, ms: Math.round(performance.now() - t0) };
+    }
+  }
+
+  // 返回 {ok, status, body, text, error, ms}
+  async function call(path, options) {
+    var opts = options || {};
+    var t0 = performance.now();
+    try {
+      var res = await fetchWithTimeout(base + path, {
+        method: opts.method || "GET",
+        headers: opts.headers || {},
+        body: opts.body,
+        cache: "no-store",
+      }, 8000);
+      var text = await res.text();
+      var body = null;
+      try { body = JSON.parse(text); } catch (e) { body = null; }
+      return {
+        ok: true,
+        status: res.status,
+        body: body,
+        text: text.slice(0, 200),
+        ms: Math.round(performance.now() - t0),
+      };
+    } catch (err) {
+      var fail = err && err.name === "AbortError" ? "卡住了，8 秒都没回应" : reason(err);
+      return { ok: false, error: fail, ms: Math.round(performance.now() - t0) };
+    }
+  }
+
+  async function run() {
+    rowsEl.innerHTML = "";
+    lines = [];
+    allGood = true;
+    runBtn.disabled = true;
+    runBtn.textContent = "正在检查…";
+
+    // 1. 配置读到了吗
+    if (base) addRow(true, "读到了云端地址", base);
+    else addRow(false, "没读到云端地址", "config.js 里的 apiBase 是空的");
+
+    // 2. 本机跑一次"密码加密"要多久（只是参考值，用来看服务器那边是不是慢得离谱）
+    try {
+      var enc = new TextEncoder();
+      var key = await crypto.subtle.importKey("raw", enc.encode("check-local"), "PBKDF2", false, ["deriveBits"]);
+      var t0 = performance.now();
+      await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt: new Uint8Array(16), iterations: 20000, hash: "SHA-256" },
+        key,
+        256
+      );
+      addRow(true, "本机加密速度（20000 次）", Math.round(performance.now() - t0) + " 毫秒");
+    } catch (err) {
+      addRow(false, "本机加密测不了", reason(err));
+    }
+
+    if (base) {
+      // 3. 对照实验一：访问一个国内一定打得开的网站。
+      //    它要是也发不出去，说明问题在"这个页面根本不允许对外的跨域请求"，
+      //    而不是某个服务器的问题。
+      var bd = await reachable(controlUrl);
+      if (bd.ok) {
+        addRow(true, "对照一：访问一个肯定打得开的网站", controlUrl + " —— 通了，用了 " + bd.ms + " 毫秒");
+      } else {
+        addRow(
+          false,
+          "对照一：访问一个肯定打得开的网站",
+          controlUrl + " —— 连它也没发出去：" + bd.error + "（" + bd.ms + " 毫秒）"
+        );
+      }
+
+      // 4. 对照实验二：不读内容，只试"能不能连上那个域名"。
+      //    能连上却读不到内容 → 问题在跨域许可；连都连不上 → 问题在网络。
+      var wr = await reachable(base + "/?nc=" + Date.now());
+      if (wr.ok) {
+        addRow(true, "对照二：能不能连上那个域名（不读内容）", "连上了，用了 " + wr.ms + " 毫秒");
+      } else {
+        addRow(false, "对照二：能不能连上那个域名（不读内容）", "连不上：" + wr.error + "（" + wr.ms + " 毫秒）");
+      }
+
+      // 5. 服务器自检：最普通的一个 GET，连试 3 次（判断是不是时好时坏）
+      var h = null;
+      var tried = [];
+      for (var i = 1; i <= 3; i++) {
+        var one = await call("/api/health", { headers: { Accept: "application/json" } });
+        tried.push((one.ok ? "通(状态 " + one.status + ")" : "没通") + " " + one.ms + " 毫秒");
+        if (one.ok && !h) h = one;
+      }
+      if (h) {
+        addRow(
+          true,
+          "服务器自检（最简单的 GET，连试 3 次）",
+          "三次结果：" + tried.join("，") + "｜" + ((h.body && h.body.verdict) || "")
+        );
+      } else {
+        addRow(false, "服务器自检（最简单的 GET，连试 3 次）", "三次结果：" + tried.join("，"));
+      }
+
+      // 4. 带 JSON 的 POST：和 App 注册时一模一样的发法（会先发一次"预检"请求）
+      var l1 = await call("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "check_nobody_here", password: "check123456" }),
+      });
+      if (l1.ok && l1.status === 401) {
+        addRow(true, "POST（和 App 一样的发法）", "通了，状态 " + l1.status + "（" + l1.ms + " 毫秒）：" + ((l1.body && l1.body.error) || ""));
+      } else {
+        addRow(false, "POST（和 App 一样的发法）", l1.ok ? "状态 " + l1.status + "，回的内容：" + l1.text : "失败：" + l1.error + "（" + l1.ms + " 毫秒）");
+      }
+
+      // 5. 换成 text/plain 发 —— 这种不会发"预检"请求，用来判断是不是预检那一步被挡了
+      var l2 = await call("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify({ username: "check_nobody_here", password: "check123456" }),
+      });
+      if (l2.ok && l2.status === 401) {
+        addRow(true, "POST（跳过预检的发法）", "通了，状态 " + l2.status + "（" + l2.ms + " 毫秒）");
+      } else {
+        addRow(false, "POST（跳过预检的发法）", l2.ok ? "状态 " + l2.status + "，回的内容：" + l2.text : "失败：" + l2.error + "（" + l2.ms + " 毫秒）");
+      }
+
+      // 6. 真正的注册：这一条会用到"密码加密"和数据库写入，是最后一关
+      var name = "check" + String(Date.now()).slice(-9);
+      var reg = await call("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: name, password: "check123456" }),
+      });
+      if (reg.ok && reg.status === 200) {
+        addRow(true, "真的注册一个账号（" + name + "）", "成功，用了 " + reg.ms + " 毫秒。说明服务器这一整套是好的！");
+      } else {
+        addRow(
+          false,
+          "真的注册一个账号（" + name + "）",
+          reg.ok
+            ? "状态 " + reg.status + "，回的内容：" + reg.text + "（" + reg.ms + " 毫秒）"
+            : "失败：" + reg.error + "（" + reg.ms + " 毫秒）"
+        );
+      }
+    }
+
+    var out = [
+      "【今天 · 账号连接诊断】",
+      "时间：" + new Date().toLocaleString(),
+      "云端地址：" + (base || "（空的）"),
+      "浏览器：" + navigator.userAgent,
+      "",
+    ].concat(lines).concat([
+      "",
+      "总评：" + (allGood ? "每一项都通过了" : "有没通过的项目，见上面标着「没通过」的那几行"),
+    ]);
+    reportEl.value = out.join("\n");
+
+    runBtn.disabled = false;
+    runBtn.textContent = "再检查一次";
+  }
+
+  runBtn.addEventListener("click", function () {
+    run().catch(function (err) {
+      addRow(false, "检查过程自己出错了", reason(err));
+      runBtn.disabled = false;
+      runBtn.textContent = "再检查一次";
+    });
+  });
+})();
+</script>
+</body>
+</html>

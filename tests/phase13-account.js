@@ -36,6 +36,16 @@ async function startServer() {
       return;
     }
     const name = decodeURIComponent(req.url.split("?")[0]).replace(/^\//, "") || "index.html";
+    // 测试用的是本机这台小服务器，它自己就提供 /api。
+    // 而项目里的 config.js 填的是真实的 Cloudflare 网址（那是给本机版用的）。
+    // 要是原样加载，测试就跑去找线上服务器了 —— 那就不叫测试了（还会因为
+    // config.js 被改过而莫名其妙地挂掉）。这里换成「用当前网址」，
+    // 让请求只打到这台小服务器上。
+    if (name === "config.js") {
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+      res.end("window.JINTIAN_CONFIG = {};");
+      return;
+    }
     const file = path.join(h.ROOT, name);
     if (!file.startsWith(h.ROOT)) { res.writeHead(403); res.end("forbidden"); return; }
     fs.readFile(file, (err, data) => {

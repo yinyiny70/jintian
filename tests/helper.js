@@ -73,6 +73,18 @@ async function openApp(page, url) {
   await dismissBackupPrompt(page);
 }
 
+// 把"这台测试电脑"上的 App 数据清空，回到全新状态。
+// 注意顺序：一定要先离开 App 那个页面再清。
+// App 里对"页面要关了"有一个保存动作（不然关掉页面时正在计时的时间会丢），
+// 所以在 App 页面上直接清，一导航它就把内存里的旧数据又写回去了。
+async function freshState(page) {
+  await page.goto(toFileUrl(path.join(FIXTURES, "probe.html")), { waitUntil: "load" });
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(toFileUrl(APP_HTML), { waitUntil: "load" });
+  await page.waitForSelector("#app");
+  await dismissBackupPrompt(page);
+}
+
 // 第三版起：添加任务只写名字（不再填预估时长），预估改成在任务行上设置。
 // 下面两个函数让测试继续走真实的界面路径。
 async function setEstimateOfLast(page, est) {
@@ -159,6 +171,7 @@ module.exports = {
   tempProfile,
   sleep,
   openApp,
+  freshState,
   dismissBackupPrompt,
   addTask,
   setEstimateOfLast,

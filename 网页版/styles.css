@@ -62,6 +62,9 @@
   --blur-panel: blur(34px) saturate(180%);
   --blur-tile: blur(18px) saturate(160%);
   --blur-pop: blur(44px) saturate(190%);
+
+  /* 金句花边用的"藤蔓角花"（内联的小图形，不联网） */
+  --vine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M4 37 C4 18 15 7 37 5' stroke='%23a8894f' stroke-width='1.7' fill='none'/%3E%3Cpath d='M12 28 c7-7 15-9 22-5' stroke='%23a8894f' stroke-width='1.3' fill='none'/%3E%3Ccircle cx='30' cy='15' r='2.4' fill='%23c3a86a'/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -230,6 +233,63 @@ body {
 .backup-title { font-size: 12px; color: var(--text); font-weight: 500; }
 .backup-sub { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- 侧边栏底部的小工具按钮（备份收在这里）---------- */
+.side-tools {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.side-icon {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 999px;
+  background-color: var(--glass-1);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-spring), box-shadow 0.18s var(--ease-out),
+              background-color 0.18s var(--ease-out), border-color 0.18s var(--ease-out),
+              color 0.18s var(--ease-out);
+}
+.side-icon .ic { color: var(--accent); }
+.side-icon:hover {
+  transform: translateY(-1px);
+  color: var(--text);
+  border-color: var(--stroke);
+  background-color: var(--glass-2);
+  box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow-tile);
+}
+.side-icon:active { transform: scale(0.97); }
+
+/* 「小铺」上那个小圆点：今天还有分没拿就亮着 */
+.side-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 只给读屏软件看（视觉上不占地方） */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---------- 深浅色切换 ---------- */
 .theme-switch {
   display: flex;
@@ -311,7 +371,32 @@ body {
   gap: 12px;
   padding: 4px 0 10px;
   max-width: 720px;
+  position: relative;
+  border-radius: 16px;
 }
+/* 金句那块的四个角（只有戴"角花"花边时才看得见） */
+.home-quote-wrap i { display: none; }
+/* 铺了纸 / 加了框，就要留出边距，字不能贴着边 */
+.home-quote-wrap.has-paper { padding: 24px 26px 20px; }
+/* 带角花的花边要留得更多，不然角落的枝子会压到出处那行字 */
+.home-quote-wrap.has-frame { padding: 26px 40px 34px; }
+/* 纸都是浅色的，所以铺了纸就把字改成深色，不然深色模式下看不见 */
+.home-quote-wrap.has-paper { color: #352c20; }
+.home-quote-wrap.has-paper .home-quote-src { color: #7c6c59; }
+
+/* 首页角落那三个摆件 */
+.sill {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  color: var(--accent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.sill .ic { width: 32px; height: 32px; stroke-width: 1.5; }
 .home-quote {
   font-size: 32px;
   font-weight: 500;
@@ -323,6 +408,31 @@ body {
   transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
 }
 .home-quote.is-in { opacity: 1; transform: none; }
+
+/* 第四版：三种内容三种字。
+   字体必须用电脑上已经装好的（本地 App 不能联网下字体），
+   所以每一档都写了中英文两个名字，后面再留一个常见的楷体兜底。 */
+.home-quote.is-poem {
+  /* 古诗 · 行楷：字面比黑体小，所以要放大一点才压得住场 */
+  font-family: "华文行楷", "STXingkai", "楷体", "KaiTi", serif;
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+}
+.home-quote.is-lyric {
+  /* 流行歌词 · 楷体 */
+  font-family: "楷体", "KaiTi", "华文楷体", "STKaiti", serif;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+.home-quote.is-saying {
+  /* 名言：保持原来的微软雅黑，不做特殊处理 */
+  font-size: 32px;
+}
+
 .home-quote-src {
   font-size: 13px;
   color: var(--muted);
@@ -620,6 +730,279 @@ body {
 
 /* ---------- 备忘录 ---------- */
 .block { display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------- 小铺（第四版） ---------- */
+.points-box {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 6px 16px 8px;
+  border-radius: 18px;
+  background-image: linear-gradient(160deg, var(--sheen-soft), transparent 62%);
+  background-color: var(--glass-2);
+  border: 1px solid var(--stroke-soft);
+  box-shadow: inset 0 1px 0 var(--edge-top-soft), var(--shadow-tile);
+}
+.points-num {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.points-unit { font-size: 13px; color: var(--muted); }
+
+.daily-list { display: flex; flex-direction: column; gap: 9px; }
+.daily {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 16px;
+  background-image: linear-gradient(160deg, var(--sheen-soft), transparent 62%);
+  background-color: var(--glass-2);
+  box-shadow: inset 0 1px 0 var(--edge-top-soft);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.daily { cursor: pointer; transition: transform 0.16s var(--ease-spring), box-shadow 0.18s var(--ease-out); }
+button.daily:hover:not(:disabled) { transform: translateY(-1px); box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow-tile); }
+button.daily:active:not(:disabled) { transform: scale(0.99); }
+button.daily:disabled { cursor: default; }
+.daily-mark {
+  flex: none;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--stroke-soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+.daily.is-done .daily-mark {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.daily-body { display: flex; flex-direction: column; min-width: 0; }
+.daily-name { font-size: 14px; font-weight: 500; }
+.daily.is-done .daily-name { color: var(--muted); }
+.daily-note { font-size: 12px; color: var(--muted); }
+
+/* 小铺的货架 */
+.shelf { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
+.shelf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.shelf-name { font-size: 13.5px; font-weight: 600; }
+.shelf-hint { font-size: 12px; color: var(--muted); }
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 13px 8px 11px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 16px;
+  background-image: linear-gradient(160deg, var(--sheen-soft), transparent 62%);
+  background-color: var(--glass-1);
+  box-shadow: inset 0 1px 0 var(--edge-top-soft);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-spring), box-shadow 0.18s var(--ease-out),
+              border-color 0.18s var(--ease-out);
+}
+.item:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--stroke);
+  box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow-tile);
+}
+.item:active:not(:disabled) { transform: scale(0.98); }
+.item:disabled { cursor: default; }
+.item.is-locked { opacity: 0.6; }
+.item.is-owned { border-color: var(--accent-soft-strong); background-color: var(--accent-soft); }
+.item-art { display: flex; align-items: center; justify-content: center; height: 32px; color: var(--accent); }
+.item-art .ic { width: 26px; height: 26px; }
+.item-name { font-size: 13px; }
+.item-price { font-size: 11.5px; color: var(--muted); }
+.item-state { font-size: 11.5px; color: var(--accent); }
+
+/* 临时：试玩用的加分按钮那一行 */
+.dev-note {
+  margin: 2px 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 货架上的小样：主题看两块颜色，底纹看纸，花边看框 */
+.swatch {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--stroke-soft);
+  overflow: hidden;
+  background-color: #fffdf6;
+}
+.swatch.theme-swatch { background-color: var(--bg); }
+.swatch.theme-swatch::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 10px;
+  background-color: var(--accent);
+}
+
+/* ---------- 主题配色（兑换来的，换的是整页的底色和主色）----------
+   每套都写了"浅色 / 深色"两份，跟着侧边栏那个深浅切换走。 */
+.th-zhu {
+  --bg: light-dark(#f3e5de, #1b1210);
+  --glow-1: light-dark(rgba(255, 250, 245, 1), rgba(255, 190, 160, 0.14));
+  --glow-2: light-dark(rgba(245, 205, 180, 0.8), rgba(200, 110, 80, 0.14));
+  --glow-3: light-dark(rgba(234, 185, 166, 0.68), rgba(160, 100, 90, 0.12));
+  --glow-4: light-dark(rgba(232, 213, 194, 0.6), rgba(90, 74, 66, 0.4));
+  --accent: light-dark(#a8392c, #f0836f);
+  --accent-deep: light-dark(#8a2b21, #f79c8a);
+  --accent-soft: light-dark(rgba(168, 57, 44, 0.12), rgba(240, 131, 111, 0.16));
+  --accent-soft-strong: light-dark(rgba(168, 57, 44, 0.2), rgba(240, 131, 111, 0.24));
+  --accent-ring: light-dark(rgba(168, 57, 44, 0.42), rgba(240, 131, 111, 0.5));
+  --accent-shadow: light-dark(rgba(120, 40, 30, 0.5), rgba(0, 0, 0, 0.6));
+}
+.th-dian {
+  --bg: light-dark(#e4e9f3, #101420);
+  --glow-1: light-dark(rgba(255, 255, 255, 1), rgba(150, 190, 255, 0.14));
+  --glow-2: light-dark(rgba(207, 220, 245, 0.85), rgba(90, 130, 210, 0.14));
+  --glow-3: light-dark(rgba(195, 203, 232, 0.7), rgba(120, 120, 190, 0.12));
+  --glow-4: light-dark(rgba(217, 230, 221, 0.6), rgba(70, 80, 96, 0.4));
+  --accent: light-dark(#2f5d9e, #7fa6e0);
+  --accent-deep: light-dark(#264b80, #9dbcEC);
+  --accent-soft: light-dark(rgba(47, 93, 158, 0.12), rgba(127, 166, 224, 0.16));
+  --accent-soft-strong: light-dark(rgba(47, 93, 158, 0.2), rgba(127, 166, 224, 0.24));
+  --accent-ring: light-dark(rgba(47, 93, 158, 0.42), rgba(127, 166, 224, 0.5));
+  --accent-shadow: light-dark(rgba(30, 60, 110, 0.5), rgba(0, 0, 0, 0.6));
+}
+.th-ou {
+  --bg: light-dark(#efe4ec, #191220);
+  --glow-1: light-dark(rgba(255, 250, 253, 1), rgba(240, 170, 220, 0.14));
+  --glow-2: light-dark(rgba(238, 211, 232, 0.85), rgba(190, 110, 175, 0.14));
+  --glow-3: light-dark(rgba(224, 198, 221, 0.7), rgba(150, 120, 170, 0.12));
+  --glow-4: light-dark(rgba(216, 223, 232, 0.6), rgba(80, 70, 88, 0.4));
+  --accent: light-dark(#9b5487, #d79ac4);
+  --accent-deep: light-dark(#7d426d, #e5b3d5);
+  --accent-soft: light-dark(rgba(155, 84, 135, 0.12), rgba(215, 154, 196, 0.16));
+  --accent-soft-strong: light-dark(rgba(155, 84, 135, 0.2), rgba(215, 154, 196, 0.24));
+  --accent-ring: light-dark(rgba(155, 84, 135, 0.42), rgba(215, 154, 196, 0.5));
+  --accent-shadow: light-dark(rgba(110, 50, 95, 0.5), rgba(0, 0, 0, 0.6));
+}
+.th-dai {
+  --bg: light-dark(#e3eae8, #0f1716);
+  --glow-1: light-dark(rgba(255, 255, 255, 1), rgba(150, 230, 220, 0.13));
+  --glow-2: light-dark(rgba(207, 224, 221, 0.85), rgba(70, 150, 145, 0.14));
+  --glow-3: light-dark(rgba(198, 214, 216, 0.7), rgba(110, 140, 150, 0.12));
+  --glow-4: light-dark(rgba(221, 229, 205, 0.6), rgba(64, 76, 74, 0.4));
+  --accent: light-dark(#2f6b68, #7fc9c4);
+  --accent-deep: light-dark(#255652, #9ad9d4);
+  --accent-soft: light-dark(rgba(47, 107, 104, 0.12), rgba(127, 201, 196, 0.16));
+  --accent-soft-strong: light-dark(rgba(47, 107, 104, 0.2), rgba(127, 201, 196, 0.24));
+  --accent-ring: light-dark(rgba(47, 107, 104, 0.42), rgba(127, 201, 196, 0.5));
+  --accent-shadow: light-dark(rgba(30, 80, 78, 0.5), rgba(0, 0, 0, 0.6));
+}
+.th-hu {
+  --bg: light-dark(#f5e7d2, #1d1409);
+  --glow-1: light-dark(rgba(255, 251, 244, 1), rgba(255, 210, 150, 0.15));
+  --glow-2: light-dark(rgba(246, 216, 164, 0.85), rgba(200, 150, 70, 0.15));
+  --glow-3: light-dark(rgba(238, 199, 156, 0.7), rgba(170, 130, 90, 0.12));
+  --glow-4: light-dark(rgba(223, 224, 192, 0.6), rgba(86, 76, 60, 0.4));
+  --accent: light-dark(#a9722a, #e0ab5c);
+  --accent-deep: light-dark(#8a5c20, #ecc07c);
+  --accent-soft: light-dark(rgba(169, 114, 42, 0.12), rgba(224, 171, 92, 0.16));
+  --accent-soft-strong: light-dark(rgba(169, 114, 42, 0.2), rgba(224, 171, 92, 0.24));
+  --accent-ring: light-dark(rgba(169, 114, 42, 0.42), rgba(224, 171, 92, 0.5));
+  --accent-shadow: light-dark(rgba(120, 80, 25, 0.5), rgba(0, 0, 0, 0.6));
+}
+.th-song {
+  --bg: light-dark(#e9e7e2, #16171a);
+  --glow-1: light-dark(rgba(255, 255, 255, 1), rgba(220, 225, 230, 0.1));
+  --glow-2: light-dark(rgba(220, 217, 208, 0.85), rgba(140, 145, 150, 0.12));
+  --glow-3: light-dark(rgba(211, 207, 199, 0.7), rgba(120, 120, 120, 0.1));
+  --glow-4: light-dark(rgba(220, 222, 211, 0.6), rgba(70, 72, 74, 0.4));
+  --accent: light-dark(#4d5a55, #a8b6b1);
+  --accent-deep: light-dark(#3b4642, #c2cec9);
+  --accent-soft: light-dark(rgba(77, 90, 85, 0.12), rgba(168, 182, 177, 0.16));
+  --accent-soft-strong: light-dark(rgba(77, 90, 85, 0.2), rgba(168, 182, 177, 0.24));
+  --accent-ring: light-dark(rgba(77, 90, 85, 0.42), rgba(168, 182, 177, 0.5));
+  --accent-shadow: light-dark(rgba(50, 60, 56, 0.5), rgba(0, 0, 0, 0.6));
+}
+
+/* ---------- 金句的底纹 ---------- */
+.pa-xuan {
+  background-color: #f8f1e1;
+  background-image:
+    repeating-linear-gradient(102deg, rgba(120, 90, 50, 0.05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(14deg, rgba(120, 90, 50, 0.04) 0 1px, transparent 1px 5px);
+}
+.pa-grid {
+  background-color: #fffdf6;
+  background-image:
+    linear-gradient(rgba(70, 90, 120, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 90, 120, 0.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.pa-line {
+  background-color: #fffdf6;
+  background-image: repeating-linear-gradient(transparent 0 24px, rgba(70, 90, 120, 0.16) 24px 25px);
+}
+.pa-gold {
+  background-color: #fbf4e4;
+  background-image:
+    radial-gradient(circle at 10% 30%, rgba(190, 150, 60, 0.6) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 26% 74%, rgba(190, 150, 60, 0.5) 0 1.3px, transparent 2px),
+    radial-gradient(circle at 47% 18%, rgba(190, 150, 60, 0.55) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 63% 62%, rgba(190, 150, 60, 0.5) 0 1.4px, transparent 2px),
+    radial-gradient(circle at 82% 26%, rgba(190, 150, 60, 0.55) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 92% 78%, rgba(190, 150, 60, 0.5) 0 1.3px, transparent 2px);
+}
+.pa-cloth {
+  background-color: #f3ede1;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(120, 100, 70, 0.07) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(120, 100, 70, 0.07) 0 2px, transparent 2px 6px);
+}
+
+/* ---------- 金句的花边 ---------- */
+.fr-double {
+  border: 1px solid rgba(150, 118, 74, 0.55);
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.75), inset 0 0 0 5px rgba(150, 118, 74, 0.38);
+}
+.fr-stitch { border: 2px dashed rgba(150, 118, 74, 0.5); }
+.fr-corner i {
+  display: block;
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(150, 118, 74, 0.6);
+}
+.fr-corner .c1 { top: 7px; left: 7px; border-right: 0; border-bottom: 0; }
+.fr-corner .c2 { top: 7px; right: 7px; border-left: 0; border-bottom: 0; }
+.fr-corner .c3 { bottom: 7px; left: 7px; border-right: 0; border-top: 0; }
+.fr-corner .c4 { bottom: 7px; right: 7px; border-left: 0; border-top: 0; }
+.fr-vine {
+  background-image: var(--vine), var(--vine), var(--vine), var(--vine);
+  background-repeat: no-repeat;
+  background-position: left top, right top, left bottom, right bottom;
+  background-size: 34px 34px;
+}
+.fr-vine i { display: none; }
+
 .block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .block-title {
   margin: 0;
