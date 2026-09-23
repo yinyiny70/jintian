@@ -5,6 +5,7 @@ window.JINTIAN_CONFIG = {
   // 云同步的服务器地址（就是你部署出来的那个网址）。
   //   - 网页版：留空即可，它会自动用当前网址（同一个域名下的 /api）
   //   - 本机版：必须填上，否则本机那份同步不上去。
-  //   例：apiBase: "https://jintian.你的名字.workers.dev"
-  apiBase: "https://jintian-api.3030370958.workers.dev",
+  //   2026-09-23 换成了自己的域名：workers.dev 在国内经常连不上，
+  //   换成 api.going661.com 之后就不用开代理了。
+  apiBase: "https://api.going661.com",
 };
