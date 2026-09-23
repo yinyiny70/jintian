@@ -112,6 +112,7 @@
         earned: 0, // 一共赚过多少（花掉不减，用来看"总共攒过多少"）
         days: {}, // "2026-09-23": { checkin: true, focus: false, tasks: false }
         unlocked: [], // 已经换到手的东西
+        box: [], // 盲盒已经抽到的照片 id
         using: { theme: "", paper: "", frame: "", ornaments: [] } // 现在正用着的
       }
     };
@@ -176,6 +177,9 @@
       }
       if (Array.isArray(p.unlocked)) {
         next.points.unlocked = p.unlocked.filter(function (x) { return typeof x === "string"; });
+      }
+      if (Array.isArray(p.box)) {
+        next.points.box = p.box.filter(function (x) { return typeof x === "string"; });
       }
       if (p.using && typeof p.using === "object") {
         next.points.using.theme = typeof p.using.theme === "string" ? p.using.theme : "";
@@ -332,6 +336,7 @@
 
   var SHOP_SHELVES = [
     { kind: "ornament", name: "角落摆件", hint: "摆在首页角落，最多同时摆 3 个" },
+    { kind: "friend", name: "朋友摆件", hint: "你朋友的卡通形象，摆在首页角落" },
     { kind: "theme", name: "主题配色", hint: "换底色和主色（墨绿是默认的）" },
     { kind: "paper", name: "金句底纹", hint: "给首页那句字换一种纸" },
     { kind: "frame", name: "金句花边", hint: "给首页那句字加一圈框" }
@@ -346,6 +351,14 @@
     { id: "orn-lamp", kind: "ornament", name: "台灯", price: 30, icon: "i-orn-lamp" },
     { id: "orn-gramo", kind: "ornament", name: "留声机", price: 30, icon: "i-orn-gramo" },
     { id: "orn-cat", kind: "ornament", name: "趴着的猫", price: 30, icon: "i-orn-cat" },
+
+    /* ----- 朋友摆件（第五版）-----
+       这几张是占位图（我自己画的），等你把真的卡通图发来，
+       直接把 assets/friends/ 里同名文件换掉就行，代码不用动。 */
+    { id: "fr-1", kind: "friend", name: "朋友甲（占位）", price: 30, img: "assets/friends/friend-1.png" },
+    { id: "fr-2", kind: "friend", name: "朋友乙（占位）", price: 30, img: "assets/friends/friend-2.png" },
+    { id: "fr-3", kind: "friend", name: "朋友丙（占位）", price: 30, img: "assets/friends/friend-3.png" },
+    { id: "fr-4", kind: "friend", name: "朋友丁（占位）", price: 30, img: "assets/friends/friend-4.png" },
 
     { id: "th-zhu", kind: "theme", name: "朱砂", price: 80, swatch: "th-zhu" },
     { id: "th-dian", kind: "theme", name: "靛蓝", price: 80, swatch: "th-dian" },
@@ -402,7 +415,8 @@
   // 主题 / 底纹 / 花边：点一下用上，再点一下收起来（回到默认）
   function equipItem(id) {
     var item = shopItemById(id);
-    if (!item || !ownsItem(id) || item.kind === "ornament") return false;
+    if (!item || !ownsItem(id)) return false;
+    if (item.kind !== "theme" && item.kind !== "paper" && item.kind !== "frame") return false;
     var key = item.kind;
     state.points.using[key] = state.points.using[key] === id ? "" : id;
     saveNow();
@@ -425,6 +439,54 @@
     saveNow();
     renderAll();
     return true;
+  }
+
+  /* ---------- 盲盒礼物（第五版）----------
+     100 分抽一次，里面 8 张照片，**保证不重复**：抽到的都是还没集到的那几张之一。
+     这 8 张现在是占位图，等真照片来了，把 assets/box/ 里同名文件换掉即可。 */
+
+  var BOX_PRICE = 100;
+  var BOX_PHOTOS = [
+    // 用户给的 7 张照片（第 8 张还没发来）。名字已按用户给的第 1—7 张填好；
+    // word（寄语）还是占位文字，等用户写好之后替换。
+    { id: "photo-1", name: "郭小好", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-1.jpg" },
+    { id: "photo-2", name: "这是gay", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-2.jpg" },
+    { id: "photo-3", name: "阿栋", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-3.jpg" },
+    { id: "photo-4", name: "刘小豪", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-4.jpg" },
+    { id: "photo-5", name: "谦er", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-5.jpg" },
+    { id: "photo-6", name: "Going", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-6.jpg" },
+    { id: "photo-7", name: "小铉文", word: "寄语还没写，等你写好我补上。", file: "assets/box/photo-7.jpg" }
+  ];
+
+  function boxOpenedIds() {
+    return state.points.box || (state.points.box = []);
+  }
+
+  function boxPhotoById(id) {
+    for (var i = 0; i < BOX_PHOTOS.length; i++) {
+      if (BOX_PHOTOS[i].id === id) return BOX_PHOTOS[i];
+    }
+    return null;
+  }
+
+  function boxRemaining() {
+    var got = boxOpenedIds();
+    return BOX_PHOTOS.filter(function (p) {
+      return got.indexOf(p.id) < 0;
+    });
+  }
+
+  // 抽一个盲盒。返回抽到的那张照片；分不够或已经集齐就返回 null。
+  function openBox() {
+    var left = boxRemaining();
+    if (!left.length) return null;
+    if (state.points.balance < BOX_PRICE) return null;
+    var pick = left[Math.floor(Math.random() * left.length)];
+    state.points.balance -= BOX_PRICE;
+    boxOpenedIds().push(pick.id);
+    saveNow();
+    renderAll();
+    return pick;
   }
 
   // 把"正在用"的东西真正画到界面上：主题给整页，底纹花边给首页那句字，摆件给首页角落
@@ -467,7 +529,10 @@
     sill.innerHTML = placed
       .map(function (id) {
         var item = shopItemById(id);
-        return item && item.icon ? '<svg class="ic"><use href="#' + item.icon + '"/></svg>' : "";
+        if (!item) return "";
+        if (item.icon) return '<svg class="ic"><use href="#' + item.icon + '"/></svg>';
+        if (item.img) return '<img src="' + item.img + '" alt="">';
+        return "";
       })
       .join("");
   }
@@ -689,6 +754,32 @@
       osc.start(t0);
       osc.stop(t0 + 0.5);
     });
+  }
+
+  // 开奖那一下的"叮咚"：四个音往上走，比平时那声提示音更有点仪式感
+  function boxFanfare() {
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    try {
+      if (ctx.state === "suspended") ctx.resume();
+      var now = ctx.currentTime;
+      [784, 988, 1175, 1568].forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        var t0 = now + 0.06 + i * 0.13;
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.75);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.8);
+      });
+    } catch (err) {
+      /* 没声音也不影响开奖 */
+    }
   }
 
   function startBell() {
@@ -1641,6 +1732,7 @@
     if (badge) badge.hidden = st.all;
 
     renderShelves(st);
+    renderGift();
   }
 
   function itemCardHtml(item, balance) {
@@ -1649,6 +1741,8 @@
     var art = "";
     if (item.icon) {
       art = '<svg class="ic"><use href="#' + item.icon + '"/></svg>';
+    } else if (item.img) {
+      art = '<img class="item-img" src="' + item.img + '" alt="">';
     } else if (item.kind === "theme") {
       // 主题的小样：上面一块底色，下面一条主色
       art = '<span class="swatch theme-swatch ' + item.swatch + '"></span>';
@@ -1661,7 +1755,7 @@
     if (!has) {
       label = can ? "换下来" : "还差 " + (item.price - balance) + " 分";
       enabled = can;
-    } else if (item.kind === "ornament") {
+    } else if (item.kind === "ornament" || item.kind === "friend") {
       act = "place";
       if (state.points.using.ornaments.indexOf(item.id) >= 0) {
         label = "正在摆着";
@@ -1737,15 +1831,84 @@
     }).join("");
   }
 
+  /* ---------- 盲盒礼物柜 ---------- */
+
+  function renderGift() {
+    var grid = $("gift-grid");
+    if (!grid) return;
+    var got = boxOpenedIds();
+    grid.innerHTML = BOX_PHOTOS.map(function (p) {
+      if (got.indexOf(p.id) >= 0) {
+        return (
+          '<button type="button" class="gift-slot is-open" data-act="view-photo" data-photo="' +
+          p.id +
+          '" title="' +
+          p.name +
+          '"><img src="' +
+          p.file +
+          '" alt="' +
+          p.name +
+          '"></button>'
+        );
+      }
+      return '<span class="gift-slot is-locked" title="还没抽到">？</span>';
+    }).join("");
+
+    var left = boxRemaining().length;
+    var all = left === 0;
+    var can = state.points.balance >= BOX_PRICE;
+    var btn = $("box-open");
+    if (btn) {
+      btn.disabled = all || !can;
+      btn.textContent = all
+        ? "全部集齐了"
+        : can
+          ? "抽一个 · " + BOX_PRICE + " 分"
+          : "还差 " + (BOX_PRICE - state.points.balance) + " 分";
+    }
+    setText("box-sub", BOX_PRICE + " 分抽一次 · 里面 " + BOX_PHOTOS.length + " 张照片 · 抽到的不重复");
+    setText(
+      "box-note",
+      all
+        ? BOX_PHOTOS.length + " 张全在你手里了 · 点任意一张看大图"
+        : "还有 " + left + " 张没抽到 · 保证不重复"
+    );
+  }
+
+  // 打开一张照片：大图 + 名字 + 寄语。fresh = 刚抽到时翻开一下
+  function openPhotoDialog(photo, fresh) {
+    if (!photo) return;
+    setText("photo-name", photo.name);
+    setText("photo-word", photo.word);
+    var img = $("photo-img");
+    if (img) {
+      img.src = photo.file;
+      img.alt = photo.name;
+    }
+    var dlg = $("dialog-photo");
+    if (dlg) {
+      dlg.classList.remove("is-fresh");
+      if (fresh) {
+        void dlg.offsetWidth; // 让它重新触发一次动画
+        dlg.classList.add("is-fresh");
+        boxFanfare();
+      }
+    }
+    openDialog("dialog-photo");
+  }
+
   /* ============================================================
    * 弹框
    * ========================================================== */
 
   var confirmAction = null;
 
+  // 所有弹窗的 id，集中放一处：开关弹窗时一个个过一遍
+  var DIALOG_IDS = ["dialog-start", "dialog-ring", "dialog-backup", "dialog-confirm", "dialog-account", "dialog-photo"];
+
   function closeDialogs() {
     $("overlay").hidden = true;
-    ["dialog-start", "dialog-ring", "dialog-backup", "dialog-confirm", "dialog-account"].forEach(function (id) {
+    DIALOG_IDS.forEach(function (id) {
       var el = $(id);
       if (el) el.hidden = true;
     });
@@ -1754,7 +1917,7 @@
 
   function openDialog(id) {
     $("overlay").hidden = false;
-    ["dialog-start", "dialog-ring", "dialog-backup", "dialog-confirm", "dialog-account"].forEach(function (other) {
+    DIALOG_IDS.forEach(function (other) {
       var el = $(other);
       if (el) el.hidden = other !== id;
     });
@@ -1852,6 +2015,19 @@
       }
       if (act === "place") {
         toggleOrnament(btn.dataset.item);
+        return;
+      }
+      if (act === "open-box") {
+        var gotPhoto = openBox();
+        if (gotPhoto) openPhotoDialog(gotPhoto, true);
+        return;
+      }
+      if (act === "view-photo") {
+        openPhotoDialog(boxPhotoById(btn.dataset.photo), false);
+        return;
+      }
+      if (act === "photo-close") {
+        closeDialogs();
         return;
       }
       // 临时：试玩用的加分按钮（用户看够效果之后连同 index.html 那一块一起删掉）
@@ -2256,6 +2432,9 @@
     equipItem: equipItem,
     placeOrnament: toggleOrnament,
     placedOrnaments: placedOrnaments,
+    openBox: openBox,
+    boxRemaining: function () { return boxRemaining().length; },
+    boxTotal: function () { return BOX_PHOTOS.length; },
     backupKeys: { db: BACKUP_DB, store: BACKUP_STORE, key: BACKUP_KEY },
     backupNow: function () { return writeBackup(); }
   };

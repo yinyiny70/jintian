@@ -241,6 +241,18 @@
         <button type="button" class="link" data-act="dev-boost">试玩用：先给我加 1000 分</button>
         <span class="block-hint">　（临时的，试完让 Codex 删掉）</span>
       </p>
+
+      <section class="block">
+        <div class="block-head">
+          <h2 class="block-title">盲盒礼物</h2>
+          <span class="block-hint" id="box-note"></span>
+        </div>
+        <div class="box-head">
+          <button type="button" class="btn primary" data-act="open-box" id="box-open">抽一个 · 100 分</button>
+          <span class="block-hint" id="box-sub"></span>
+        </div>
+        <div class="gift-grid" id="gift-grid"></div>
+      </section>
     </section>
 
     <div class="timerbar" id="timerbar" hidden>
@@ -318,6 +330,37 @@
       <div class="dialog-actions">
         <button type="button" class="btn" data-act="confirm-cancel">取消</button>
         <button type="button" class="btn primary" data-act="confirm-ok" id="confirm-ok">确定</button>
+      </div>
+    </div>
+
+    <!-- 盲盒抽到的照片：大图 + 名字 + 寄语 -->
+    <div class="dialog dialog-photo" id="dialog-photo" role="dialog" aria-modal="true" aria-labelledby="photo-name" hidden>
+      <p class="photo-kicker">翻开 · 恭喜抽到</p>
+      <div class="reveal-stage">
+        <div class="reveal-box" aria-hidden="true">
+          <span class="reb-lid"></span>
+          <span class="reb-body"></span>
+          <span class="reb-band"></span>
+        </div>
+        <span class="reveal-flash" aria-hidden="true"></span>
+        <span class="reveal-ring" aria-hidden="true"></span>
+        <span class="reveal-ring is-second" aria-hidden="true"></span>
+        <span class="spark s1" aria-hidden="true"></span>
+        <span class="spark s2" aria-hidden="true"></span>
+        <span class="spark s3" aria-hidden="true"></span>
+        <span class="spark s4" aria-hidden="true"></span>
+        <span class="spark s5" aria-hidden="true"></span>
+        <span class="spark s6" aria-hidden="true"></span>
+        <span class="spark s7" aria-hidden="true"></span>
+        <span class="spark s8" aria-hidden="true"></span>
+        <div class="photo-frame">
+          <img id="photo-img" src="" alt="">
+        </div>
+      </div>
+      <h2 class="dialog-title photo-title" id="photo-name"></h2>
+      <p class="photo-word" id="photo-word"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-act="photo-close">收好</button>
       </div>
     </div>
 

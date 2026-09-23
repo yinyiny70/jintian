@@ -36,27 +36,31 @@ module.exports = {
   title: "第四版 · 小铺货架与兑换",
   tests: [
     {
-      name: "货架分四类，一共 23 件，每件都标着分数",
+      name: "货架分五类，一共 27 件，每件都标着分数",
       async run(ctx) {
         await openShop(ctx.page);
-        ctx.assert.eq(await ctx.page.$$eval(".shelf", (els) => els.length), 4, "货架不是四类");
+        ctx.assert.eq(await ctx.page.$$eval(".shelf", (els) => els.length), 5, "货架不是五类");
         const items = await itemsOf(ctx.page);
-        ctx.assert.eq(items.length, 23, "东西的数量不对：" + items.length);
+        ctx.assert.eq(items.length, 27, "东西的数量不对：" + items.length);
         const kinds = await ctx.page.$$eval(".shelf-name", (els) => els.map((e) => e.textContent.trim()));
-        ctx.assert.eq(kinds.join("/"), "角落摆件/主题配色/金句底纹/金句花边", "四类货架的顺序或名字不对");
+        ctx.assert.eq(
+          kinds.join("/"),
+          "角落摆件/朋友摆件/主题配色/金句底纹/金句花边",
+          "五类货架的顺序或名字不对"
+        );
 
         const bad = items.filter((it) => !it.name || !/\d+/.test(it.price));
         ctx.assert.eq(bad.length, 0, "有东西没写名字或分数：" + JSON.stringify(bad.slice(0, 3)));
 
         // 一分没有的时候：全都换不了，而且告诉你还差多少
         const locked = items.filter((it) => it.locked);
-        ctx.assert.eq(locked.length, 23, "没分的时候居然有东西可以换");
+        ctx.assert.eq(locked.length, 27, "没分的时候居然有东西可以换");
         const noHint = items.filter((it) => it.state.indexOf("还差") < 0);
         ctx.assert.eq(noHint.length, 0, "没写清还差多少分：" + JSON.stringify(noHint.slice(0, 3)));
 
-        // 全部换完要多少分：8×30 + 6×80 + 5×25 + 4×25 = 945
+        // 全部换完要多少分：8×30 + 4×30（朋友摆件）+ 6×80 + 5×25 + 4×25 = 1065
         const total = items.reduce((sum, it) => sum + (parseInt(it.price.replace(/\D/g, ""), 10) || 0), 0);
-        ctx.assert.eq(total, 945, "全部换完要的分数变了：" + total);
+        ctx.assert.eq(total, 1065, "全部换完要的分数变了：" + total);
       },
     },
     {
@@ -128,11 +132,18 @@ module.exports = {
         await givePoints(ctx.page, 200);
         await ctx.page.click('.item[data-item="orn-cat"]');
         await ctx.page.click('.item[data-item="pa-xuan"]');
-        const hints = await ctx.page.$$eval(".shelf-hint", (els) => els.map((e) => e.textContent.replace(/\s+/g, "")));
-        ctx.assert.includes(hints[0], "已收1/8", "摆件那一栏的计数不对：" + hints[0]);
-        ctx.assert.includes(hints[2], "已收1/5", "底纹那一栏的计数不对：" + hints[2]);
-        ctx.assert.includes(hints[1], "已收0/6", "主题那一栏的计数不对：" + hints[1]);
-        ctx.assert.includes(hints[3], "已收0/4", "花边那一栏的计数不对：" + hints[3]);
+        const hints = await ctx.page.$$eval(".shelf", (els) =>
+          els.map((s) => ({
+            name: s.querySelector(".shelf-name").textContent.trim(),
+            hint: s.querySelector(".shelf-hint").textContent.replace(/\s+/g, ""),
+          }))
+        );
+        const hintOf = (name) => (hints.filter((h) => h.name === name)[0] || { hint: "" }).hint;
+        ctx.assert.includes(hintOf("角落摆件"), "已收1/8", "摆件那一栏的计数不对：" + hintOf("角落摆件"));
+        ctx.assert.includes(hintOf("朋友摆件"), "已收0/4", "朋友摆件那一栏的计数不对：" + hintOf("朋友摆件"));
+        ctx.assert.includes(hintOf("主题配色"), "已收0/6", "主题那一栏的计数不对：" + hintOf("主题配色"));
+        ctx.assert.includes(hintOf("金句底纹"), "已收1/5", "底纹那一栏的计数不对：" + hintOf("金句底纹"));
+        ctx.assert.includes(hintOf("金句花边"), "已收0/4", "花边那一栏的计数不对：" + hintOf("金句花边"));
       },
     },
     {

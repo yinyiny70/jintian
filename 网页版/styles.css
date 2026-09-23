@@ -396,7 +396,10 @@ body {
   opacity: 0.9;
   pointer-events: none;
 }
-.sill .ic { width: 32px; height: 32px; stroke-width: 1.5; }
+/* 第五版：摆件从 32 像素放大到 50 像素，卡片图（朋友摆件）一样大 */
+.sill { gap: 18px; }
+.sill .ic { width: 50px; height: 50px; stroke-width: 1.4; }
+.sill img { width: 50px; height: 50px; object-fit: contain; }
 .home-quote {
   font-size: 32px;
   font-weight: 500;
@@ -829,6 +832,7 @@ button.daily:disabled { cursor: default; }
 .item.is-owned { border-color: var(--accent-soft-strong); background-color: var(--accent-soft); }
 .item-art { display: flex; align-items: center; justify-content: center; height: 32px; color: var(--accent); }
 .item-art .ic { width: 26px; height: 26px; }
+.item-img { width: 34px; height: 34px; object-fit: contain; }
 .item-name { font-size: 13px; }
 .item-price { font-size: 11.5px; color: var(--muted); }
 .item-state { font-size: 11.5px; color: var(--accent); }
@@ -842,6 +846,236 @@ button.daily:disabled { cursor: default; }
   flex-wrap: wrap;
 }
 
+/* ---------- 盲盒礼物（第五版） ---------- */
+.box-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.gift-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 540px;
+}
+.gift-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 16px;
+  background-color: var(--glass-1);
+  color: var(--muted);
+  font: inherit;
+  font-size: 24px;
+  overflow: hidden;
+}
+.gift-slot.is-locked { border-style: dashed; }
+button.gift-slot {
+  cursor: pointer;
+  transition: transform 0.16s var(--ease-spring), box-shadow 0.18s var(--ease-out),
+              border-color 0.18s var(--ease-out);
+}
+button.gift-slot:hover {
+  transform: translateY(-2px);
+  border-color: var(--stroke);
+  box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow-tile);
+}
+.gift-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- 看大图 / 盲盒开奖（第五版：开奖要做隆重一点） ---------- */
+.dialog-photo { width: min(560px, calc(100vw - 40px)); }
+
+.reveal-stage { position: relative; display: grid; place-items: center; }
+.photo-frame { grid-area: 1 / 1; }
+
+/* 平时（点开已经抽到的照片）：开奖那一套全都不出现 */
+.reveal-box,
+.reveal-flash,
+.reveal-ring,
+.spark,
+.photo-kicker { display: none; }
+
+/* 礼物盒（纯 CSS 画的，不依赖任何图片） */
+.reveal-box { grid-area: 1 / 1; position: relative; width: 176px; height: 152px; }
+.reb-body {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 104px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, var(--accent-deep), var(--accent));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), var(--shadow-tile);
+}
+.reb-lid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 26px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+.reb-lid::before,
+.reb-lid::after {
+  content: "";
+  position: absolute;
+  top: -15px;
+  width: 27px;
+  height: 21px;
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  background: linear-gradient(160deg, #fff6dd, #e9c478);
+}
+.reb-lid::before { left: 50%; margin-left: -29px; transform: rotate(-18deg); }
+.reb-lid::after { left: 50%; margin-left: 2px; transform: rotate(18deg); }
+.reb-band {
+  position: absolute;
+  left: 50%;
+  top: 26px;
+  bottom: 0;
+  width: 24px;
+  margin-left: -12px;
+  background: linear-gradient(180deg, rgba(255, 246, 221, 0.95), rgba(233, 196, 120, 0.85));
+  border-radius: 3px;
+}
+
+/* --- 开奖时间线（只在 is-fresh 时跑）--- */
+.dialog-photo.is-fresh .reveal-box {
+  display: block;
+  animation:
+    box-in 0.4s var(--ease-spring) both,
+    box-wobble 0.4s 0.4s ease-in-out 3,
+    box-open 0.28s 1.6s ease-in forwards;
+}
+@keyframes box-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.7); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes box-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4.5deg); }
+  75% { transform: rotate(4.5deg); }
+}
+@keyframes box-open {
+  to { opacity: 0; transform: translateY(-30px) scale(1.2) rotate(-7deg); }
+}
+
+.dialog-photo.is-fresh .reveal-flash {
+  display: block;
+  position: absolute;
+  inset: -50px;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 62%);
+  animation: flash 0.5s 1.6s ease-out forwards;
+}
+@keyframes flash {
+  0% { opacity: 0; transform: scale(0.55); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+
+.dialog-photo.is-fresh .reveal-ring {
+  display: block;
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 3px solid rgba(233, 196, 120, 0.85);
+  pointer-events: none;
+  opacity: 0;
+  animation: ring 0.95s 1.66s ease-out forwards;
+}
+.dialog-photo.is-fresh .reveal-ring.is-second { animation-delay: 1.84s; border-width: 2px; }
+@keyframes ring {
+  0% { opacity: 0.9; transform: scale(0.32); }
+  100% { opacity: 0; transform: scale(1.95); }
+}
+
+/* 往外飞的金色小点（是纸屑光点，不是任何天气图形） */
+.spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e9c478;
+  opacity: 0;
+  pointer-events: none;
+}
+.spark.s1 { --tx: -132px; --ty: -74px; }
+.spark.s2 { --tx: 128px; --ty: -80px; }
+.spark.s3 { --tx: -150px; --ty: 26px; }
+.spark.s4 { --tx: 152px; --ty: 20px; }
+.spark.s5 { --tx: -78px; --ty: -128px; }
+.spark.s6 { --tx: 82px; --ty: -132px; }
+.spark.s7 { --tx: -40px; --ty: 122px; }
+.spark.s8 { --tx: 46px; --ty: 126px; }
+.dialog-photo.is-fresh .spark { display: block; animation: spark 1.5s 1.74s ease-out forwards; }
+@keyframes spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1); }
+}
+
+.dialog-photo.is-fresh .reveal-stage { animation: stage-glow 0.9s 1.6s ease-out; }
+@keyframes stage-glow {
+  0% { filter: none; }
+  40% { filter: brightness(1.14) saturate(1.12); }
+  100% { filter: none; }
+}
+
+/* 照片飞进来，然后名字、寄语依次浮出来 */
+.dialog-photo.is-fresh .photo-frame { animation: photo-in 0.75s 1.7s var(--ease-spring) both; }
+@keyframes photo-in {
+  from { opacity: 0; transform: scale(0.5) translateY(30px) rotate(-3deg); }
+  to { opacity: 1; transform: none; }
+}
+.dialog-photo.is-fresh .photo-kicker { display: block; animation: fade-up 0.45s 2.24s both; }
+.dialog-photo.is-fresh .photo-title { animation: fade-up 0.45s 2.36s both; }
+.dialog-photo.is-fresh .photo-word { animation: fade-up 0.45s 2.48s both; }
+.dialog-photo.is-fresh .dialog-actions { animation: fade-up 0.45s 2.62s both; }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.photo-kicker {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  text-align: center;
+}
+
+.photo-frame {
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: var(--glass-1);
+  border: 1px solid var(--stroke-soft);
+  box-shadow: inset 0 1px 0 var(--edge-top-soft), var(--shadow-tile);
+}
+.photo-frame img {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background-color: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.04));
+}
+.photo-title { margin: 16px 0 6px; }
+.photo-word {
+  margin: 0 0 18px;
+  color: var(--muted-strong);
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
 /* 货架上的小样：主题看两块颜色，底纹看纸，花边看框 */
 .swatch {
   position: relative;

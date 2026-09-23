@@ -16,6 +16,8 @@ const {
 
 // 对外发布只用到这 4 个文件；其他东西（文档、测试、Git 历史）都不上传
 const SITE_FILES = ["index.html", "styles.css", "app.js", "quotes.js", "config.js", "favicon.svg"];
+// 第五版起还有图片素材（朋友摆件、盲盒照片），整个文件夹一起搬过去
+const SITE_DIRS = ["assets"];
 const SITE_DIR = "网页版";
 
 function refreshSiteFolder() {
@@ -27,6 +29,12 @@ function refreshSiteFolder() {
     if (!fs.existsSync(from)) return;
     fs.copyFileSync(from, path.join(dir, name));
     copied.push(name);
+  });
+  SITE_DIRS.forEach(function (name) {
+    const from = path.join(ROOT, name);
+    if (!fs.existsSync(from)) return;
+    fs.cpSync(from, path.join(dir, name), { recursive: true });
+    copied.push(name + "/");
   });
   return copied;
 }
